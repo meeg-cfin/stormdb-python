@@ -30,7 +30,7 @@ def check_path_exists(chkpath):
             raise
 
 proj_code = 'MINDLAB2013_01-MEG-AttentionEmotionVisualTracking'
-proj_path = '/projects/' + proc_code
+proj_path = '/projects/' + proj_code
 analysis_name = 'sss'
 
 VERBOSE=True
@@ -75,7 +75,7 @@ for subj in included_subjects:
             session_output_files = []
             session_mfp = [] #NB: this is a list!!
 
-            session_input_files = db.get_files(subj, study, modality='MEG', session)
+            session_input_files = db.get_files(subj, study, modality='MEG', series=session)
             for ii_raw, raw_fname in enumerate(sorted(session_input_files)):
 
                 raw = Raw(raw_fname)

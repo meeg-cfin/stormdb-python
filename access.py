@@ -128,7 +128,7 @@ class Query():
                 
                 if modality in output:
                     if unique:
-                        return study
+                        return study # NB: returns string! Should change to [study] to return list...
                 else:
                     stud_list[ii] = None
 
@@ -151,10 +151,9 @@ class Query():
             # If we get this far, no studies found with the desired modality    
             if verbose:
                 print "No studies found with the desired modality"
-            return None
+                return None
             
-        else:    
-            return stud_list
+        return stud_list
 
     def get_series(self, subj_id, study, modality, verbose=False):
         

@@ -63,7 +63,7 @@ mf_params_defaults = {'input_file': None, 'output_file': None,
 
 mf_fname_suffix = '_sss'
 
-included_subjects = db.get_subjects()[0:1]
+included_subjects = db.get_subjects()# [0:1]
 if not FAKE:
     pool = multiprocessing.Pool(processes=n_processes)
 

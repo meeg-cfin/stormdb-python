@@ -18,6 +18,8 @@ from maxfilter_cfin import build_maxfilter_cmd, fit_sphere_to_headshape
 #from sys import exit as sysexit
 import os
 import errno
+import multiprocessing
+import subprocess
 
 def check_path_exists(chkpath):
     
@@ -29,12 +31,14 @@ def check_path_exists(chkpath):
         else:
             raise
 
-proj_code = 'MINDLAB2013_01-MEG-AttentionEmotionVisualTracking'
+
+proj_code = 'MINDLAB2013_03-MEG-BlindPerception'
 proj_path = '/projects/' + proj_code
 analysis_name = 'sss'
 
 VERBOSE=True
-SAVE=True # NB
+FAKE=False # NB
+n_processes=2 # Remember that each process is using 4 cores by default!
 
 db = Query(proj_code=proj_code,verbose=True)
 
@@ -59,7 +63,12 @@ mf_params_defaults = {'input_file': None, 'output_file': None,
 
 mf_fname_suffix = '_sss'
 
-included_subjects = db.get_subjects()
+included_subjects = db.get_subjects()[0:1]
+if not FAKE:
+    pool = multiprocessing.Pool(processes=n_processes)
+
+
+all_cmds = []
 for subj in included_subjects:
     output_folder_base = proj_path + '/scratch/maxfilter/' + analysis_name + '/' + subj
     check_path_exists(output_folder_base)
@@ -69,21 +78,17 @@ for subj in included_subjects:
         check_path_exists(output_folder)
 
         
-        for session in db.get_series(subj, study, modality='MEG'):
+        for (session, sesnum) in db.get_series(subj, study, modality='MEG'):
             # Start with a fresh copy of the defaults
             mfp = mf_params_defaults.copy()
             session_output_files = []
             session_mfp = [] #NB: this is a list!!
 
-            session_input_files = db.get_files(subj, study, modality='MEG', series=session)
+            session_input_files = db.get_files(subj, study, modality='MEG', series=sesnum)
             for ii_raw, raw_fname in enumerate(sorted(session_input_files)):
 
-                raw = Raw(raw_fname)
-                radius_head, origin_head, origin_devive = fit_sphere_to_headshape(raw.info,verbose=VERBOSE)
-                raw.close()        
-
                 fnum_raw = "%02d" % ii_raw
-                mfp['input_file'] = raw_name
+                mfp['input_file'] = raw_fname
                 
                 if len(session_input_files) > 1:
                     output_name_base = output_folder + '/'+session+ '-' + fnum_raw
@@ -94,6 +99,12 @@ for subj in included_subjects:
                     mfp['output_file'] = output_name_base + mf_fname_suffix + '.fif'
                     mfp['mv_hp'] = output_name_base + mf_fname_suffix + '.pos'
                     mfp['logfile'] = output_name_base + mf_fname_suffix + '.log'
+                    raw = Raw(raw_fname)
+                    radius_head, origin_head, origin_devive = fit_sphere_to_headshape(raw.info,verbose=VERBOSE)
+                    raw.close()        
+                    mfp['origin_head'] = origin_head
+                    mfp['radius_head'] = radius_head
+
                 else:
                     mfp['output_file'] = output_name_base + mf_fname_suffix +'.fif'
                     mfp['mv_hp'] = None
@@ -132,8 +143,43 @@ for subj in included_subjects:
                                              verbose=mfp['verbose'], maxfilter_bin=mfp['maxfilter_bin'],
                                              logfile=mfp['logfile'])
 
-                print('Initiating Maxfilter with following command')
-                print(mf_cmd)
-        #cur_dict.update({'files': session_output_files})
-        #cur_dict.update({'mf_params': session_mf_params})
+                #print('Initiating Maxfilter with following command')
+                #print(mf_cmd)
+                all_cmds.append(mf_cmd)
 
+
+if not FAKE:
+    return_codes = pool.map(_parallel_task,all_cmds)
+    pool.close()
+    pool.join()
+
+    if any(return_codes):
+        print "Some subprocesses didn't complete!"
+        print "Return codes: ", return_codes
+        print "Dying here, temp files not deleted, see below:"
+        print '\n'.join(all_cmds)
+        raise
+    else:
+        print('All subprocesses completed')
+
+elif VERBOSE:
+    print "The following would execute, if this were not a FAKE run:"
+    for cmd in all_cmds:
+        print "%s" % cmd
+    # cleanup
+
+def _parallel_task(command):
+    """
+    General purpose method to submit Unix executable-based analyses (e.g.
+    maxfilter and freesurfer) to the shell.
+
+    Parameters:
+    command:    The command to execute (single string)
+
+    Returns:        The return code (shell) of the command
+    """
+    #proc = subprocess.Popen([fs_cmd],stdout=subprocess.PIPE, shell=True)
+    proc = subprocess.Popen([command], shell=True)
+
+    proc.communicate()
+    return proc.returncode

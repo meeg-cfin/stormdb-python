@@ -120,24 +120,33 @@ class Query():
         stud_list = [x for x in stud_list if x]
     
         if modality:
-            for study in stud_list:
+            for ii,study in enumerate(stud_list):
                 url = 'modalities?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
                       subj_id + '\\&study=' + study
                 output = self._wget_system_call(url).split('\n')
                 #print output, '==', modality
                 
-                for entry in output:              
-                    if entry == modality:
-                        if unique:
-                            return study
-                            ### NB!! This only matches first hit! If subject contains several studies
-                            ### with this modality,
-                            ### only first one is returned... Fix me!
-                        else:
-                            # must re-write code a bit to accommodate the existence of
-                            # several studies containing the desired modality...
-                            print "Error: non-unique modalities not implemented yet!"
-                            sysexit(-1)
+                if modality in output:
+                    if unique:
+                        return study
+                else:
+                    stud_list[ii] = None
+
+            stud_list = filter(None, stud_list)
+#                for entry in output:              
+#                    if entry == modality:
+#                        if unique:
+#                            return study
+#                            ### NB!! This only matches first hit! If subject contains several studies
+#                            ### with this modality,
+#                            ### only first one is returned... Fix me!
+#                    else:
+#                        stud_list = [x for x in stud_list if x 
+#                        else:
+#                            # must re-write code a bit to accommodate the existence of
+#                            # several studies containing the desired modality...
+#                            print "Error: non-unique modalities not implemented yet!"
+#                            sysexit(-1)
                         
             # If we get this far, no studies found with the desired modality    
             if verbose:

@@ -38,7 +38,8 @@ analysis_name = 'sss'
 
 VERBOSE=True
 FAKE=False # NB
-n_processes=2 # Remember that each process is using 4 cores by default!
+n_processes=4 # Remember that each process is using n_threads cores by default!
+n_threads=2 # 2 threads per process
 
 db = Query(proj_code=proj_code,verbose=True)
 
@@ -57,7 +58,7 @@ mf_params_defaults = {'input_file': None, 'output_file': None,
              'st_corr': 0.90, 'st_buflen': 10, 'mv_hp': False,
              'origin_head': [0,0,40], 'radius_head': None,
              'bad': None, 'hpicons': True, 'linefreq': 50.,
-             'cal': cal_db, 'ctc': ctc_db,
+             'cal': cal_db, 'ctc': ctc_db, 'n_threads': n_threads,
              'force': True, 'verbose': True, 'maxfilter_bin': mx_cmd,
              'logfile': None}
 
@@ -83,6 +84,7 @@ for subj in included_subjects:
             mfp = mf_params_defaults.copy()
             session_output_files = []
             session_mfp = [] #NB: this is a list!!
+            radius_head = origin_head = None # only once per session
 
             session_input_files = db.get_files(subj, study, modality='MEG', series=sesnum)
             for ii_raw, raw_fname in enumerate(sorted(session_input_files)):
@@ -99,9 +101,10 @@ for subj in included_subjects:
                     mfp['output_file'] = output_name_base + mf_fname_suffix + '.fif'
                     mfp['mv_hp'] = output_name_base + mf_fname_suffix + '.pos'
                     mfp['logfile'] = output_name_base + mf_fname_suffix + '.log'
-                    raw = Raw(raw_fname)
-                    radius_head, origin_head, origin_devive = fit_sphere_to_headshape(raw.info,verbose=VERBOSE)
-                    raw.close()        
+                    if not radius_head: # only needed once per session (same HPI digs)
+                        raw = Raw(raw_fname)
+                        radius_head, origin_head, origin_devive = fit_sphere_to_headshape(raw.info,verbose=VERBOSE)
+                        raw.close()        
                     mfp['origin_head'] = origin_head
                     mfp['radius_head'] = radius_head
 
@@ -139,7 +142,7 @@ for subj in included_subjects:
                                              bad=mfp['bad'], autobad=mfp['autobad'], force=mfp['force'],
                                              st=mfp['st'], st_buflen=mfp['st_buflen'], st_corr=mfp['st_corr'], 
                                              movecomp=mfp['movecomp'], mv_hp=mfp['mv_hp'], hpicons=mfp['hpicons'],
-                                             linefreq=mfp['linefreq'], cal=mfp['cal'], ctc=mfp['ctc'],
+                                             linefreq=mfp['linefreq'], cal=mfp['cal'], ctc=mfp['ctc'], n_threads=mfp['n_threads'],
                                              verbose=mfp['verbose'], maxfilter_bin=mfp['maxfilter_bin'],
                                              logfile=mfp['logfile'])
 

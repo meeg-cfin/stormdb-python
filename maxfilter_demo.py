@@ -31,6 +31,21 @@ def check_path_exists(chkpath):
         else:
             raise
 
+def _parallel_task(command):
+    """
+    General purpose method to submit Unix executable-based analyses (e.g.
+    maxfilter and freesurfer) to the shell.
+
+    Parameters:
+    command:    The command to execute (single string)
+
+    Returns:        The return code (shell) of the command
+    """
+    #proc = subprocess.Popen([fs_cmd],stdout=subprocess.PIPE, shell=True)
+    proc = subprocess.Popen([command], shell=True)
+
+    proc.communicate()
+    return proc.returncode
 
 proj_code = 'MINDLAB2013_03-MEG-BlindPerception'
 proj_path = '/projects/' + proj_code
@@ -171,18 +186,3 @@ elif VERBOSE:
         print "%s" % cmd
     # cleanup
 
-def _parallel_task(command):
-    """
-    General purpose method to submit Unix executable-based analyses (e.g.
-    maxfilter and freesurfer) to the shell.
-
-    Parameters:
-    command:    The command to execute (single string)
-
-    Returns:        The return code (shell) of the command
-    """
-    #proc = subprocess.Popen([fs_cmd],stdout=subprocess.PIPE, shell=True)
-    proc = subprocess.Popen([command], shell=True)
-
-    proc.communicate()
-    return proc.returncode

@@ -320,9 +320,9 @@ def build_maxfilter_cmd(in_fname, out_fname, origin='0 0 40', frame='head',
     if n_threads is None:
         for n,line in enumerate(open('/neuro/setup/maxfilter/maxfilter.defs')):
             if 'maxthreads' in line:
-                n_threads = line.split()[1] # This is a string!!
-                
-    MAXTHREADS = 'OMP_NUM_THREADS=%s ' % n_threads #This is a string!
+                n_threads = int(line.split()[1]) # This is a int!!
+        
+    MAXTHREADS = 'OMP_NUM_THREADS=%d ' % n_threads #This is an int!
     cmd = MAXTHREADS + cmd
 
     return cmd

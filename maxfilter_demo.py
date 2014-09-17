@@ -38,7 +38,7 @@ analysis_name = 'sss'
 
 VERBOSE=True
 FAKE=False # NB
-n_processes=4 # Remember that each process is using n_threads cores by default!
+n_processes=3 # Remember that each process is using n_threads cores by default!
 n_threads=2 # 2 threads per process
 
 db = Query(proj_code=proj_code,verbose=True)
@@ -78,13 +78,12 @@ for subj in included_subjects:
         output_folder = output_folder_base + '/' + study[2:8]
         check_path_exists(output_folder)
 
-        
+        radius_head = None # only once per study!
         for (session, sesnum) in db.get_series(subj, study, modality='MEG'):
             # Start with a fresh copy of the defaults
             mfp = mf_params_defaults.copy()
             session_output_files = []
             session_mfp = [] #NB: this is a list!!
-            radius_head = origin_head = None # only once per session
 
             session_input_files = db.get_files(subj, study, modality='MEG', series=sesnum)
             for ii_raw, raw_fname in enumerate(sorted(session_input_files)):
@@ -97,11 +96,12 @@ for subj in included_subjects:
                 else:
                     output_name_base = output_folder + '/'+session
             
-                if not 'empty' in session.lower():
+                if not 'empt' in session.lower(): #### TYPO IN ONE SESSION NAME: emptRy!!
+                    # change this to test existence of initial HPI measurement...
                     mfp['output_file'] = output_name_base + mf_fname_suffix + '.fif'
                     mfp['mv_hp'] = output_name_base + mf_fname_suffix + '.pos'
                     mfp['logfile'] = output_name_base + mf_fname_suffix + '.log'
-                    if not radius_head: # only needed once per session (same HPI digs)
+                    if radius_head is None: # only needed once per study (same HPI digs)
                         raw = Raw(raw_fname)
                         radius_head, origin_head, origin_devive = fit_sphere_to_headshape(raw.info,verbose=VERBOSE)
                         raw.close()        

@@ -28,6 +28,10 @@ class Query():
             print 'ERROR: Bad project code?'
             sysexit(-1)
         
+        self.proj_code = proj_code                   
+        self._server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
+        self._wget_cmd = 'wget -qO - test ' + self._server
+
         try: 
             with open(os.path.expanduser(stormdblogin)):
                 if verbose:
@@ -56,10 +60,6 @@ class Query():
             fout.close()
             os.chmod(os.path.expanduser(stormdblogin), 0400)
          
-        self.proj_code = proj_code                   
-        self._server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
-        self._wget_cmd = 'wget -qO - test ' + self._server
-
     @staticmethod
     def _wget_error_handling(stdout):
         if 'error' in stdout:

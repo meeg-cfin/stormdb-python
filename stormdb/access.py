@@ -58,7 +58,8 @@ class Query():
             fout = open(os.path.expanduser(stormdblogin), 'w')
             fout.write(self._login_code)
             fout.close()
-            os.chmod(os.path.expanduser(stormdblogin), 0400)
+            # New in py3: now using stat.S_IRUSR = 256 (?)
+            os.chmod(os.path.expanduser(stormdblogin), 256)
 
     @staticmethod
     def _wget_error_handling(stdout):

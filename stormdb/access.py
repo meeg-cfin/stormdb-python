@@ -102,16 +102,10 @@ class Query():
 
         Returns
         -------
-        subjects : list of strings
+        subjects : list of str
             Subject ID codes as returned by the database.
             If no subjects are found, an empty list is returned
-
-        Notes
-        -----
-        This function will preload raw data if it was not already preloaded.
-        If data were already preloaded, it will do nothing.
         """
-
         if subj_type == 'included':
             scode = 'subjectswithcode'
         elif subj_type == 'excluded':
@@ -130,7 +124,29 @@ class Query():
 
         return(subj_list)
 
-    def get_studies(self, subj_id, modality=None, unique=True):
+    def get_studies(self, subj_id, modality=None, unique=False):
+        """Get list of studies from database for specified subject
+
+        Parameters
+        ----------
+        subj_id : str
+            A string uniquely identifying a subject in the database.
+            For example: '0001_ABC'
+        modality : str | None
+            A string defining the modality of the studies to get. Valid
+            examples include 'MEG' and 'MR'. If None, all studies are
+            returned regardless of modality.
+        unique : bool
+            If True, only the chronologically first study of the desired
+            modality is returned. Default is False (return all studies
+            that match the modality).
+
+        Returns
+        -------
+        studies : list of str
+            Study IDs as returned by the database.
+            If no studies are found, an empty list is returned
+        """
 
         url = 'studies?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + subj_id
         output = self._wget_system_call(url)
@@ -149,7 +165,7 @@ class Query():
 
                 if modality in output:
                     if unique:
-                        return(study) # NB: returns string! Should change to [study] to return(list...
+                        return([study,])  # always return a list
                 else:
                     stud_list[ii] = None
 
@@ -159,7 +175,32 @@ class Query():
         return(stud_list)
 
     def get_series(self, subj_id, study, modality):
+        """Get list of series from database for specified subject, study and
+        modality.
 
+        Parameters
+        ----------
+        subj_id : str
+            A string uniquely identifying a subject in the database.
+            For example: '0001_ABC'
+        study : str
+            A string uniquely identifying a study in the database for
+            given subject.
+        modality : str
+            A string defining the modality of the study to get.
+
+        Returns
+        -------
+        series : dict
+            A dictionary with keys corresponding to the series names, as
+            defined in the database, and values corresponding to the
+            index of the series in the study (1-based). If no series are
+            found, an empty dict is returned.
+
+        Notes
+        -----
+        The choice of a dict as output can be reconsidered.
+        """
         url = 'series?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
               subj_id + '\\&study=' + study + '\\&modality=' + modality
         output = self._wget_system_call(url, verbose=verbose)
@@ -169,17 +210,43 @@ class Query():
         # Remove any empty entries!
         series_list = [x for x in series_list if x]
 
-        # return(a 2D list with series number (as string) in 1st column and name as 2nd column
+        # create a 2D list with series name (as string)
+        # in 1st column and numerical index (also as string) in 2nd column
         series_list_2d = [x.split(' ') for x in series_list]
 
-        return(series_list_2d)
+        series_dict = {key: value for key, value in series_list_2d}
+
+        return(series_dict)
 
     def get_files(self, subj_id, study, modality, series):
-        # NB: Series can be either just the number (1) or number.name (001.VS_1b_1)
+        """Get list of files from database for specified subject, study,
+        modality and series.
 
-        url = 'files?' + self._login_code + '\\&projectCode=' + self.proj_code + \
-              '\\&subjectNo=' + subj_id + '\\&study=' + study + '\\&modality=' + \
-              modality + '\\&serieNo=' + series
+        Parameters
+        ----------
+        subj_id : str
+            A string uniquely identifying a subject in the database.
+            For example: '0001_ABC'
+        study : str
+            A string uniquely identifying a study in the database for
+            given subject.
+        modality : str
+            A string defining the modality of the study to get.
+        series : str or int
+            A string or int defining the index (1-based) of the series to get.
+
+        Returns
+        -------
+        files : list of str
+            List of absolute pathnames to file(s) in series. If no files are
+            found, an empty list is returned.
+        """
+        if type(series) is int:
+            series = str(series)
+
+        url = 'files?' + self._login_code + '\\&projectCode=' + \
+              self.proj_code + '\\&subjectNo=' + subj_id + '\\&study=' + \
+              study + '\\&modality=' + modality + '\\&serieNo=' + series
         output = self._wget_system_call(url)
 
         # Split at '\n'

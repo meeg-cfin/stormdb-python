@@ -15,6 +15,17 @@ from getpass import getuser, getpass
 import os
 from builtins import filter  # for Py2-Py3
 
+class DBError(Exception):
+    """
+    Exception to raise when StormDB returns an error.
+    """
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        print('Something is wrong, database answers '
+              'as follows (dying...):')
+        return repr(self.value)
+
 
 class Query():
     """
@@ -65,10 +76,10 @@ class Query():
     @staticmethod
     def _wget_error_handling(stdout):
         if stdout.find('error') != -1:
-            print('Something is wrong, database answers '
-                  'as follows (dying...):')
-            print(stdout)
-            return(-1)
+            #print(stdout)
+            #return(-1)
+
+            raise DBError(stdout)
 
         return(0)
 
@@ -82,8 +93,9 @@ class Query():
         output, stderr = pipe.communicate()
         #output = subp.call([cmd,opts], shell=True)
 
-        if self._wget_error_handling(output.decode(encoding='UTF-8')) < 0:
-            sysexit(-1)
+        self._wget_error_handling(output.decode(encoding='UTF-8'))
+        #if self._wget_error_handling(output.decode(encoding='UTF-8')) < 0:
+            #sysexit(-1)
 
         # Python 3.x treats pipe strings as bytes, which need to be encoded
         # Here assuming shell output is in UTF-8

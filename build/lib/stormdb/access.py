@@ -10,8 +10,10 @@ Methods to interact with the STORM database
 
 
 import subprocess as subp
+from sys import exit as sysexit
 from getpass import getuser, getpass
 import os
+from builtins import filter  # for Py2-Py3
 
 class DBError(Exception):
     """
@@ -20,6 +22,8 @@ class DBError(Exception):
     def __init__(self, value):
         self.value = value
     def __str__(self):
+        print('Something is wrong, database answers '
+              'as follows (dying...):')
         return repr(self.value)
 
 
@@ -72,6 +76,9 @@ class Query():
     @staticmethod
     def _wget_error_handling(stdout):
         if stdout.find('error') != -1:
+            #print(stdout)
+            #return(-1)
+
             raise DBError(stdout)
 
         return(0)
@@ -84,8 +91,11 @@ class Query():
 
         pipe = subp.Popen(cmd, stdout=subp.PIPE, stderr=subp.PIPE, shell=True)
         output, stderr = pipe.communicate()
+        #output = subp.call([cmd,opts], shell=True)
 
         self._wget_error_handling(output.decode(encoding='UTF-8'))
+        #if self._wget_error_handling(output.decode(encoding='UTF-8')) < 0:
+            #sysexit(-1)
 
         # Python 3.x treats pipe strings as bytes, which need to be encoded
         # Here assuming shell output is in UTF-8
@@ -141,6 +151,20 @@ class Query():
 
             # In Py3, filter returns an iterable object, but here we want list
             stud_list = list(filter(None, stud_list))
+#                for entry in output:
+#                    if entry == modality:
+#                        if unique:
+#                            return(study
+#                            ### NB!! This only matches first hit! If subject contains several studies
+#                            ### with this modality,
+#                            ### only first one is returned... Fix me!
+#                    else:
+#                        stud_list = [x for x in stud_list if x
+#                        else:
+#                            # must re-write code a bit to accommodate the existence of
+#                            # several studies containing the desired modality...
+#                            print("Error: non-unique modalities not implemented yet!")
+#                            sysexit(-1)
 
             # If we get this far, no studies found with the desired modality
             if verbose:
@@ -188,10 +212,14 @@ class Query():
 
         return(file_list)
 
+    def __str__(self):
+        print("print(not implemented yet!")
+
 
 if __name__ == '__main__':
 
     #test code
+
     project_code = 'MEG_service'
 
     Q = Query(proj_code=project_code)

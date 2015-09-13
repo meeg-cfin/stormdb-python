@@ -24,17 +24,29 @@ class DBError(Exception):
 
 
 class Query():
-    """
-    Query object for communicating with the STORM database
+    """ Query object for communicating with the STORM database
+
+    Parameters
+    ----------
+    proj_code : str
+        The name of the project.
+    stormdblogin : str
+        The filename to store database login credentials as a hash.
+        The default '~/.stormdblogin' should be OK for everyone. If the file
+        does not exist (e.g., for first-time users), the user will be
+        prompted for a username and password.
+    username : str | None
+        Define username for login. If None (default), current user is assumed.
+
+    Attributes
+    ----------
+    proj_code : str
+        Name of project
     """
 
     def __init__(self, proj_code, stormdblogin='~/.stormdblogin', username=None, verbose=None):
-
-        if os.path.exists('/projects/' + proj_code):
-            pass
-        else:
-            print('ERROR: Bad project code?')
-            sysexit(-1)
+        if not os.path.exists('/projects/' + proj_code):
+            raise DBError('No such project!')
 
         self.proj_code = proj_code
         self._server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
@@ -66,7 +78,7 @@ class Query():
             fout = open(os.path.expanduser(stormdblogin), 'w')
             fout.write(self._login_code)
             fout.close()
-            # New in py3: now using stat.S_IRUSR = 256 (?)
+            # Use octal representation
             os.chmod(os.path.expanduser(stormdblogin), 0o400)
 
     @staticmethod
@@ -203,7 +215,7 @@ class Query():
         """
         url = 'series?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
               subj_id + '\\&study=' + study + '\\&modality=' + modality
-        output = self._wget_system_call(url, verbose=verbose)
+        output = self._wget_system_call(url)
 
         # Split at '\n'
         series_list = output.split('\n')

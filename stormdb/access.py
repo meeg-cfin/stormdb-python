@@ -91,16 +91,34 @@ class Query():
         # Here assuming shell output is in UTF-8
         return(output.decode(encoding='UTF-8'))
 
-    def get_subjects(self, subj_type='included', verbose=False):
+    def get_subjects(self, subj_type='included'):
+        """Get list of subjects from database
 
-        if subj_type == 'all':  # Doesn't work yet!
-            scode = 'subjectswithcode'
-        elif subj_type == 'included':
+        Parameters
+        ----------
+        subj_type : str
+            Must be either 'included' or 'excluded'. Returned list is
+            determined by database.
+
+        Returns
+        -------
+        subjects : list of strings
+            Subject ID codes as returned by the database.
+            If no subjects are found, an empty list is returned
+
+        Notes
+        -----
+        This function will preload raw data if it was not already preloaded.
+        If data were already preloaded, it will do nothing.
+        """
+
+        if subj_type == 'included':
             scode = 'subjectswithcode'
         elif subj_type == 'excluded':
             scode = 'excludedsubjectswithcode'
         else:
-            scode = 'subjectswithcode'
+            raise NameError("""subj_type must be either 'included' or
+                            'excluded'""")
 
         url = scode + '?' + self._login_code + '\\&projectCode=' + self.proj_code
         output = self._wget_system_call(url)
@@ -110,13 +128,9 @@ class Query():
         # Remove any empty entries!
         subj_list = [x for x in subj_list if x]
 
-        if verbose:
-            print("Found following subjects:")
-            print(subj_list)
-
         return(subj_list)
 
-    def get_studies(self, subj_id, modality=None, unique=True, verbose=False):
+    def get_studies(self, subj_id, modality=None, unique=True):
 
         url = 'studies?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + subj_id
         output = self._wget_system_call(url)
@@ -127,7 +141,7 @@ class Query():
         stud_list = [x for x in stud_list if x]
 
         if modality:
-            for ii,study in enumerate(stud_list):
+            for ii, study in enumerate(stud_list):
                 url = 'modalities?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
                       subj_id + '\\&study=' + study
                 output = self._wget_system_call(url).split('\n')
@@ -142,14 +156,9 @@ class Query():
             # In Py3, filter returns an iterable object, but here we want list
             stud_list = list(filter(None, stud_list))
 
-            # If we get this far, no studies found with the desired modality
-            if verbose:
-                print("No studies found with the desired modality")
-                return(None)
-
         return(stud_list)
 
-    def get_series(self, subj_id, study, modality, verbose=False):
+    def get_series(self, subj_id, study, modality):
 
         url = 'series?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
               subj_id + '\\&study=' + study + '\\&modality=' + modality
@@ -163,13 +172,9 @@ class Query():
         # return(a 2D list with series number (as string) in 1st column and name as 2nd column
         series_list_2d = [x.split(' ') for x in series_list]
 
-        if verbose:
-            print("Found following series:")
-            print(series_list_2d)
-
         return(series_list_2d)
 
-    def get_files(self, subj_id, study, modality, series, verbose=False):
+    def get_files(self, subj_id, study, modality, series):
         # NB: Series can be either just the number (1) or number.name (001.VS_1b_1)
 
         url = 'files?' + self._login_code + '\\&projectCode=' + self.proj_code + \
@@ -181,10 +186,6 @@ class Query():
         file_list = output.split('\n')
         # Remove any empty entries!
         file_list = [x for x in file_list if x]
-
-        if verbose:
-            print("Found following files:")
-            print(file_list)
 
         return(file_list)
 

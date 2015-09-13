@@ -13,6 +13,7 @@ import subprocess as subp
 from sys import exit as sysexit
 from getpass import getuser, getpass
 import os
+from builtins import filter  # for Py2-Py3
 
 
 class Query():
@@ -59,11 +60,11 @@ class Query():
             fout.write(self._login_code)
             fout.close()
             # New in py3: now using stat.S_IRUSR = 256 (?)
-            os.chmod(os.path.expanduser(stormdblogin), 256)
+            os.chmod(os.path.expanduser(stormdblogin), 0o400)
 
     @staticmethod
     def _wget_error_handling(stdout):
-        if 'error' in stdout:
+        if stdout.find('error') != -1:
             print('Something is wrong, database answers '
                   'as follows (dying...):')
             print(stdout)
@@ -81,10 +82,12 @@ class Query():
         output, stderr = pipe.communicate()
         #output = subp.call([cmd,opts], shell=True)
 
-        if self._wget_error_handling(output) < 0:
+        if self._wget_error_handling(output.decode(encoding='UTF-8')) < 0:
             sysexit(-1)
 
-        return(output)
+        # Python 3.x treats pipe strings as bytes, which need to be encoded
+        # Here assuming shell output is in UTF-8
+        return(output.decode(encoding='UTF-8'))
 
     def get_subjects(self, subj_type='included', verbose=False):
 
@@ -134,7 +137,8 @@ class Query():
                 else:
                     stud_list[ii] = None
 
-            stud_list = filter(None, stud_list)
+            # In Py3, filter returns an iterable object, but here we want list
+            stud_list = list(filter(None, stud_list))
 #                for entry in output:
 #                    if entry == modality:
 #                        if unique:

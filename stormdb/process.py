@@ -56,8 +56,9 @@ class Maxfilter():
             self.logger.setLevel(logging.ERROR)
 
 
-    def fit_sphere_to_headshape(self, info, ylim=None,
-                                zlim=None, verbose=None):
+    @staticmethod
+    def fit_sphere_to_headshape(info, ylim=None, zlim=None,
+                                verbose=None):
         """ Fit a sphere to the headshape points to determine head center for
             maxfilter. Slightly modified from mne-python.
 
@@ -91,14 +92,14 @@ class Maxfilter():
                and not (p['r'][2] < 0 and p['r'][1] > 0)]
 
         if not ylim is None:
-            self.logger.info("Cutting out points for which "
-                             "{min:.1f} < y < {max:.1f}".format( \
-                             min=1e3*ylim[0], max=1e3*ylim[1]))
+            # self.logger.info("Cutting out points for which "
+            #                  "{min:.1f} < y < {max:.1f}".format( \
+            #                  min=1e3*ylim[0], max=1e3*ylim[1]))
             hsp = [p for p in hsp if (p[1] > ylim[0] and p[1] < ylim[1])]
         if not zlim is None:
-            self.logger.info("Cutting out points for which "
-                             "{min:.1f} < y < {max:.1f}".format( \
-                             min=1e3*zlim[0], max=1e3*zlim[1]))
+            # self.logger.info("Cutting out points for which "
+            #                  "{min:.1f} < y < {max:.1f}".format( \
+            #                  min=1e3*zlim[0], max=1e3*zlim[1]))
             hsp = [p for p in hsp if (p[2] > zlim[0] and p[2] < zlim[1])]
 
         if len(hsp) == 0:
@@ -133,12 +134,6 @@ class Maxfilter():
         head_to_dev = linalg.inv(trans['trans'])
         origin_device = 1e3 * np.dot(head_to_dev,
                                      np.r_[1e-3 * origin_head, 1.0])[:3]
-
-        self.logger.info('Fitted sphere: r = %0.1f mm' % radius)
-        self.logger.info('Origin head coordinates: %0.1f %0.1f %0.1f mm' %
-                    (origin_head[0], origin_head[1], origin_head[2]))
-        self.logger.info('Origin device coordinates: %0.1f %0.1f %0.1f mm' %
-                    (origin_device[0], origin_device[1], origin_device[2]))
 
         return radius, origin_head, origin_device
 
@@ -245,6 +240,13 @@ class Maxfilter():
             raw = Raw(in_fname)
             r, o_head, o_dev = self.fit_sphere_to_headshape(raw.info, ylim=0.070) # Note: this is not standard MNE...
             raw.close()
+
+            self.logger.info('Fitted sphere: r = {.1f} mm'.format(r))
+            self.logger.info('Origin head coordinates: {.1f} {.1f} {.1f} mm'.\
+                             format(o_head[0], o_head[1], o_head[2]))
+            self.logger.info('Origin head coordinates: {.1f} {.1f} {.1f} mm'.\
+                             format(o_dev], o_dev[1], o_dev[2]))
+
             self.logger.info('[done]')
             if frame == 'head':
                 origin = o_head

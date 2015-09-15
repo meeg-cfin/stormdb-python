@@ -119,7 +119,7 @@ class Maxfilter():
         cost_fun = lambda x, hsp:\
             np.sum((np.sqrt(np.sum((hsp - x[:3]) ** 2, axis=1)) - x[3]) ** 2)
 
-        disp = True if logger.level <= logging.INFO else False
+        disp = True if verbose else False
         x_opt = optimize.fmin_powell(cost_fun, x0, args=(hsp,), disp=disp)
 
         origin_head = x_opt[:3]
@@ -245,7 +245,7 @@ class Maxfilter():
             self.logger.info('Origin head coordinates: {.1f} {.1f} {.1f} mm'.\
                              format(o_head[0], o_head[1], o_head[2]))
             self.logger.info('Origin head coordinates: {.1f} {.1f} {.1f} mm'.\
-                             format(o_dev], o_dev[1], o_dev[2]))
+                             format(o_dev[0], o_dev[1], o_dev[2]))
 
             self.logger.info('[done]')
             if frame == 'head':

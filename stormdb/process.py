@@ -257,14 +257,16 @@ class Maxfilter():
 
         # format command
         if origin is False:
-            cmd = (maxfilter_bin + ' -f %s -o %s -v '
-                    % (in_fname, out_fname))
+            cmd = (maxfilter_bin + ' -f {:s} -o {:s} -v '.format(
+                  in_fname, out_fname))
         else:
-            if not isinstance(origin, basestring):
-                origin = '%0.1f %0.1f %0.1f' % (origin[0], origin[1], origin[2])
+            if not isinstance(origin, str):
+                origin = '{:.1f} {:.1f} {:.1f}'.format(origin[0],
+                                                       origin[1], origin[2])
 
-            cmd = (maxfilter_bin + ' -f %s -o %s -frame %s -origin %s -v '
-                    % (in_fname, out_fname, frame, origin))
+            cmd = (maxfilter_bin + \
+                  ' -f {:s} -o {:s} -frame {:s} -origin {:s} -v '.format(
+                  in_fname, out_fname, frame, origin))
 
         if bad is not None:
             # format the channels
@@ -274,25 +276,25 @@ class Maxfilter():
             bad_logic = [ch[3:] if ch.startswith('MEG') else ch for ch in bad]
             bad_str = ' '.join(bad_logic)
 
-            cmd += '-bad %s ' % bad_str
+            cmd += '-bad {:s} '.format(bad_str)
 
-        cmd += '-autobad %s ' % autobad
+        cmd += '-autobad {:s} '.format(autobad)
 
         if skip is not None:
             if isinstance(skip, list):
-                skip = ' '.join(['%0.3f %0.3f' % (s[0], s[1]) for s in skip])
-            cmd += '-skip %s ' % skip
+                skip = ' '.join(['{:.3f} {:.3f}'.format(s[0], s[1]) for s in skip])
+            cmd += '-skip {:s} '.format(skip)
 
         if force:
             cmd += '-force '
 
         if st:
             cmd += '-st '
-            cmd += ' %d ' % st_buflen
-            cmd += '-corr %0.4f ' % st_corr
+            cmd += ' {:d} '.format(st_buflen)
+            cmd += '-corr {:.4f} '.format(st_corr)
 
         if mv_trans is not None:
-            cmd += '-trans %s ' % mv_trans
+            cmd += '-trans {:s} '.format(mv_trans)
 
         if movecomp:
             cmd += '-movecomp '
@@ -303,22 +305,22 @@ class Maxfilter():
                 cmd += '-headpos '
 
             if mv_hp is not None:
-                cmd += '-hp %s ' % mv_hp
+                cmd += '-hp {:s} '.format(mv_hp)
 
             if mv_hpisubt is not None:
-                cmd += 'hpisubt %s ' % mv_hpisubt
+                cmd += 'hpisubt {:s} '.format(mv_hpisubt)
 
             if hpicons:
                 cmd += '-hpicons '
 
         if linefreq is not None:
-            cmd += '-linefreq %d ' % linefreq
+            cmd += '-linefreq {:d} '.format(linefreq)
 
         if cal is not None:
-            cmd += '-cal %s ' % cal
+            cmd += '-cal {:s} '.format(cal)
 
         if ctc is not None:
-            cmd += '-ctc %s ' % ctc
+            cmd += '-ctc {:s} '.format(ctc)
 
         cmd += mx_args
 

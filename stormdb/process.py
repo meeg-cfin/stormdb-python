@@ -362,8 +362,8 @@ class Maxfilter():
 
         ans = 'n'
         if not force:
-            ans = raw_input('Are you sure you want '
-                            'to run this? [y/N] ').lower()
+            ans = input('Are you sure you want '
+                        'to run this? [y/N] ').lower()
         if ans == 'y' or force:
             pass
             #    st = os.system(cmd)

@@ -56,8 +56,9 @@ class Maxfilter():
             self.logger.setLevel(logging.ERROR)
 
 
-    def fit_sphere_to_headshape(self, info, ylim=None,
-                                zlim=None, verbose=None):
+    @staticmethod
+    def fit_sphere_to_headshape(info, ylim=None, zlim=None,
+                                verbose=None):
         """ Fit a sphere to the headshape points to determine head center for
             maxfilter. Slightly modified from mne-python.
 
@@ -91,14 +92,14 @@ class Maxfilter():
                and not (p['r'][2] < 0 and p['r'][1] > 0)]
 
         if not ylim is None:
-            self.logger.info("Cutting out points for which "
-                             "{min:.1f} < y < {max:.1f}".format( \
-                             min=1e3*ylim[0], max=1e3*ylim[1]))
+            # self.logger.info("Cutting out points for which "
+            #                  "{min:.1f} < y < {max:.1f}".format( \
+            #                  min=1e3*ylim[0], max=1e3*ylim[1]))
             hsp = [p for p in hsp if (p[1] > ylim[0] and p[1] < ylim[1])]
         if not zlim is None:
-            self.logger.info("Cutting out points for which "
-                             "{min:.1f} < y < {max:.1f}".format( \
-                             min=1e3*zlim[0], max=1e3*zlim[1]))
+            # self.logger.info("Cutting out points for which "
+            #                  "{min:.1f} < y < {max:.1f}".format( \
+            #                  min=1e3*zlim[0], max=1e3*zlim[1]))
             hsp = [p for p in hsp if (p[2] > zlim[0] and p[2] < zlim[1])]
 
         if len(hsp) == 0:
@@ -118,7 +119,7 @@ class Maxfilter():
         cost_fun = lambda x, hsp:\
             np.sum((np.sqrt(np.sum((hsp - x[:3]) ** 2, axis=1)) - x[3]) ** 2)
 
-        disp = True if logger.level <= logging.INFO else False
+        disp = True if verbose else False
         x_opt = optimize.fmin_powell(cost_fun, x0, args=(hsp,), disp=disp)
 
         origin_head = x_opt[:3]
@@ -133,12 +134,6 @@ class Maxfilter():
         head_to_dev = linalg.inv(trans['trans'])
         origin_device = 1e3 * np.dot(head_to_dev,
                                      np.r_[1e-3 * origin_head, 1.0])[:3]
-
-        self.logger.info('Fitted sphere: r = %0.1f mm' % radius)
-        self.logger.info('Origin head coordinates: %0.1f %0.1f %0.1f mm' %
-                    (origin_head[0], origin_head[1], origin_head[2]))
-        self.logger.info('Origin device coordinates: %0.1f %0.1f %0.1f mm' %
-                    (origin_device[0], origin_device[1], origin_device[2]))
 
         return radius, origin_head, origin_device
 
@@ -245,6 +240,13 @@ class Maxfilter():
             raw = Raw(in_fname)
             r, o_head, o_dev = self.fit_sphere_to_headshape(raw.info, ylim=0.070) # Note: this is not standard MNE...
             raw.close()
+
+            self.logger.info('Fitted sphere: r = {.1f} mm'.format(r))
+            self.logger.info('Origin head coordinates: {.1f} {.1f} {.1f} mm'.\
+                             format(o_head[0], o_head[1], o_head[2]))
+            self.logger.info('Origin head coordinates: {.1f} {.1f} {.1f} mm'.\
+                             format(o_dev[0], o_dev[1], o_dev[2]))
+
             self.logger.info('[done]')
             if frame == 'head':
                 origin = o_head
@@ -255,14 +257,16 @@ class Maxfilter():
 
         # format command
         if origin is False:
-            cmd = (maxfilter_bin + ' -f %s -o %s -v '
-                    % (in_fname, out_fname))
+            cmd = (maxfilter_bin + ' -f {:s} -o {:s} -v '.format(
+                  in_fname, out_fname))
         else:
-            if not isinstance(origin, basestring):
-                origin = '%0.1f %0.1f %0.1f' % (origin[0], origin[1], origin[2])
+            if not isinstance(origin, str):
+                origin = '{:.1f} {:.1f} {:.1f}'.format(origin[0],
+                                                       origin[1], origin[2])
 
-            cmd = (maxfilter_bin + ' -f %s -o %s -frame %s -origin %s -v '
-                    % (in_fname, out_fname, frame, origin))
+            cmd = (maxfilter_bin + \
+                  ' -f {:s} -o {:s} -frame {:s} -origin {:s} -v '.format(
+                  in_fname, out_fname, frame, origin))
 
         if bad is not None:
             # format the channels
@@ -272,25 +276,25 @@ class Maxfilter():
             bad_logic = [ch[3:] if ch.startswith('MEG') else ch for ch in bad]
             bad_str = ' '.join(bad_logic)
 
-            cmd += '-bad %s ' % bad_str
+            cmd += '-bad {:s} '.format(bad_str)
 
-        cmd += '-autobad %s ' % autobad
+        cmd += '-autobad {:s} '.format(autobad)
 
         if skip is not None:
             if isinstance(skip, list):
-                skip = ' '.join(['%0.3f %0.3f' % (s[0], s[1]) for s in skip])
-            cmd += '-skip %s ' % skip
+                skip = ' '.join(['{:.3f} {:.3f}'.format(s[0], s[1]) for s in skip])
+            cmd += '-skip {:s} '.format(skip)
 
         if force:
             cmd += '-force '
 
         if st:
             cmd += '-st '
-            cmd += ' %d ' % st_buflen
-            cmd += '-corr %0.4f ' % st_corr
+            cmd += ' {:d} '.format(st_buflen)
+            cmd += '-corr {:.4f} '.format(st_corr)
 
         if mv_trans is not None:
-            cmd += '-trans %s ' % mv_trans
+            cmd += '-trans {:s} '.format(mv_trans)
 
         if movecomp:
             cmd += '-movecomp '
@@ -301,22 +305,22 @@ class Maxfilter():
                 cmd += '-headpos '
 
             if mv_hp is not None:
-                cmd += '-hp %s ' % mv_hp
+                cmd += '-hp {:s} '.format(mv_hp)
 
             if mv_hpisubt is not None:
-                cmd += 'hpisubt %s ' % mv_hpisubt
+                cmd += 'hpisubt {:s} '.format(mv_hpisubt)
 
             if hpicons:
                 cmd += '-hpicons '
 
         if linefreq is not None:
-            cmd += '-linefreq %d ' % linefreq
+            cmd += '-linefreq {:d} '.format(linefreq)
 
         if cal is not None:
-            cmd += '-cal %s ' % cal
+            cmd += '-cal {:s} '.format(cal)
 
         if ctc is not None:
-            cmd += '-ctc %s ' % ctc
+            cmd += '-ctc {:s} '.format(ctc)
 
         cmd += mx_args
 
@@ -358,8 +362,8 @@ class Maxfilter():
 
         ans = 'n'
         if not force:
-            ans = raw_input('Are you sure you want '
-                            'to run this? [y/N] ').lower()
+            ans = input('Are you sure you want '
+                        'to run this? [y/N] ').lower()
         if ans == 'y' or force:
             pass
             #    st = os.system(cmd)

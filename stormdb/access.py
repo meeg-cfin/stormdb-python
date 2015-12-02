@@ -13,7 +13,6 @@ import subprocess as subp
 from getpass import getuser, getpass
 import os
 import requests
-from os.path import join as opj
 
 
 class DBError(Exception):
@@ -59,11 +58,11 @@ class Query():
         self._wget_cmd = 'wget -qO - test ' + self._server
 
         try:
-            with open(os.path.expanduser(stormdblogin), 'r',
-                      encoding='utf-8') as fid:
+            with open(os.path.expanduser(stormdblogin), 'r') as fid:
                 if verbose:
                     print('Reading login credentials from ' + stormdblogin)
                 self._login_code = fid.readline()
+                print(self._login_code)
         except IOError:
             print('Login credentials not found, please enter them here')
             print('WARNING: This might not work if you\'re in an IDE '
@@ -75,9 +74,8 @@ class Query():
 
             prompt = 'User \"{:s}\", please enter your password: '.format(usr)
             pwd = getpass(prompt)
-            print(pwd)
 
-            url = opj('login/username/', usr, '/password/', pwd)
+            url = 'login/username/' + usr + '/password/' + pwd
             #  output = self._wget_system_call(url)
             output = self._send_request(url)
             self._login_code = output
@@ -110,6 +108,7 @@ class Query():
         # Here assuming shell output is in UTF-8
         return(output.decode(encoding='UTF-8'))
 
+    @staticmethod
     def _check_response(response):
         if response.find('error') != -1:
             raise DBError(response)
@@ -158,8 +157,8 @@ class Query():
             raise NameError("""subj_type must be either 'included' or
                             'excluded'""")
 
-        url = opj(scode, '?', self._login_code, '\\&projectCode=',
-                  self.proj_code)
+        url = scode + '?' + self._login_code + '\\&projectCode=' + \
+              self.proj_code
         output = self._wget_system_call(url)
 
         # Split at '\n'

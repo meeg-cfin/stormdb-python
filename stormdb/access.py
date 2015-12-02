@@ -13,6 +13,7 @@ import subprocess as subp
 from getpass import getuser, getpass
 import os
 import requests
+from os.path import join as opj
 
 
 class DBError(Exception):
@@ -53,6 +54,7 @@ class Query():
             raise DBError('No such project!')
 
         self.proj_code = proj_code
+        #  self._server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
         self._server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
         self._wget_cmd = 'wget -qO - test ' + self._server
 
@@ -108,6 +110,31 @@ class Query():
         # Here assuming shell output is in UTF-8
         return(output.decode(encoding='UTF-8'))
 
+    def _check_response(response):
+        if response.find('error') != -1:
+            raise DBError(response)
+
+        return(0)
+
+    def _send_request(self, url, verbose=False):
+        full_url = self._server + url
+
+        if verbose:
+            print(full_url)
+
+        try:
+            req = requests.get(full_url)
+        except ConnectionError as err:
+            print('hyades00 is not responding, it may be down.')
+            print('Contact a system administrator for confirmation.')
+            raise
+
+        self._check_response(req.content.decode(encoding='UTF-8'))
+
+        # Python 3.x treats pipe strings as bytes, which need to be encoded
+        # Here assuming shell output is in UTF-8
+        return(req.content.decode(encoding='UTF-8'))
+
     def get_subjects(self, subj_type='included'):
         """Get list of subjects from database
 
@@ -131,8 +158,8 @@ class Query():
             raise NameError("""subj_type must be either 'included' or
                             'excluded'""")
 
-        url = scode + '?' + self._login_code + \
-            '\\&projectCode=' + self.proj_code
+        url = opj(scode, '?', self._login_code, '\\&projectCode=',
+                  self.proj_code)
         output = self._wget_system_call(url)
 
         # Split at '\n'

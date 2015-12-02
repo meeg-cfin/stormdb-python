@@ -53,16 +53,14 @@ class Query():
             raise DBError('No such project!')
 
         self.proj_code = proj_code
-        #  self._server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
         self._server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
-        self._wget_cmd = 'wget -qO - test ' + self._server
+        #  self._wget_cmd = 'wget -qO - test ' + self._server
 
         try:
             with open(os.path.expanduser(stormdblogin), 'r') as fid:
                 if verbose:
                     print('Reading login credentials from ' + stormdblogin)
                 self._login_code = fid.readline()
-                print(self._login_code)
         except IOError:
             print('Login credentials not found, please enter them here')
             print('WARNING: This might not work if you\'re in an IDE '
@@ -157,9 +155,8 @@ class Query():
             raise NameError("""subj_type must be either 'included' or
                             'excluded'""")
 
-        url = scode + '?' + self._login_code + '\\&projectCode=' + \
+        url = scode + '?' + self._login_code + '&projectCode=' + \
               self.proj_code
-        #  output = self._wget_system_call(url)
         output = self._send_request(url)
         print(output)
 
@@ -195,8 +192,8 @@ class Query():
         """
 
         url = 'studies?' + self._login_code + \
-            '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + subj_id
-        output = self._wget_system_call(url)
+            '&projectCode=' + self.proj_code + '&subjectNo=' + subj_id
+        output = self._send_request(url)
 
         # Split at '\n'
         stud_list = output.split('\n')
@@ -206,9 +203,9 @@ class Query():
         if modality:
             for ii, study in enumerate(stud_list):
                 url = 'modalities?' + self._login_code + \
-                    '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
-                      subj_id + '\\&study=' + study
-                output = self._wget_system_call(url).split('\n')
+                    '&projectCode=' + self.proj_code + '&subjectNo=' + \
+                      subj_id + '&study=' + study
+                output = self._send_request(url).split('\n')
 
                 if modality in output:
                     if unique:
@@ -248,10 +245,10 @@ class Query():
         -----
         The choice of a dict as output can be reconsidered.
         """
-        url = 'series?' + self._login_code + '\\&projectCode=' + \
-            self.proj_code + '\\&subjectNo=' + \
-            subj_id + '\\&study=' + study + '\\&modality=' + modality
-        output = self._wget_system_call(url)
+        url = 'series?' + self._login_code + '&projectCode=' + \
+            self.proj_code + '&subjectNo=' + \
+            subj_id + '&study=' + study + '&modality=' + modality
+        output = self._send_request(url)
 
         # Split at '\n'
         series_list = output.split('\n')
@@ -292,10 +289,10 @@ class Query():
         if type(series) is int:
             series = str(series)
 
-        url = 'files?' + self._login_code + '\\&projectCode=' + \
-              self.proj_code + '\\&subjectNo=' + subj_id + '\\&study=' + \
-              study + '\\&modality=' + modality + '\\&serieNo=' + series
-        output = self._wget_system_call(url)
+        url = 'files?' + self._login_code + '&projectCode=' + \
+              self.proj_code + '&subjectNo=' + subj_id + '&study=' + \
+              study + '&modality=' + modality + '&serieNo=' + series
+        output = self._send_request(url)
 
         # Split at '\n'
         file_list = output.split('\n')

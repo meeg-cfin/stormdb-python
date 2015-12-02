@@ -12,6 +12,8 @@ Methods to interact with the STORM database
 import subprocess as subp
 from getpass import getuser, getpass
 import os
+import requests
+
 
 class DBError(Exception):
     """
@@ -19,6 +21,7 @@ class DBError(Exception):
     """
     def __init__(self, value):
         self.value = value
+
     def __str__(self):
         return repr(self.value)
 
@@ -44,7 +47,8 @@ class Query():
         Name of project
     """
 
-    def __init__(self, proj_code, stormdblogin='~/.stormdblogin', username=None, verbose=None):
+    def __init__(self, proj_code, stormdblogin='~/.stormdblogin',
+                 username=None, verbose=None):
         if not os.path.exists('/projects/' + proj_code):
             raise DBError('No such project!')
 
@@ -61,7 +65,8 @@ class Query():
                 f.close()
         except IOError:
             print('Login credentials not found, please enter them here')
-            print('WARNING: This might not work if you\'re in an IDE (e.g. spyder)!')
+            print('WARNING: This might not work if you\'re in an IDE '
+                  '(e.g. spyder)!')
             if username:
                 usr = username
             else:
@@ -73,7 +78,7 @@ class Query():
             url = 'login/username/' + usr + '/password/' + pwd
             output = self._wget_system_call(url)
             self._login_code = output
-            #stormdblogin='~/.stormdbdblogin'
+
             print("Code generated, writing to {:s}".format(stormdblogin))
             fout = open(os.path.expanduser(stormdblogin), 'w')
             fout.write(self._login_code)
@@ -126,7 +131,8 @@ class Query():
             raise NameError("""subj_type must be either 'included' or
                             'excluded'""")
 
-        url = scode + '?' + self._login_code + '\\&projectCode=' + self.proj_code
+        url = scode + '?' + self._login_code + \
+            '\\&projectCode=' + self.proj_code
         output = self._wget_system_call(url)
 
         # Split at '\n'
@@ -160,7 +166,8 @@ class Query():
             If no studies are found, an empty list is returned
         """
 
-        url = 'studies?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + subj_id
+        url = 'studies?' + self._login_code + \
+            '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + subj_id
         output = self._wget_system_call(url)
 
         # Split at '\n'
@@ -170,14 +177,14 @@ class Query():
 
         if modality:
             for ii, study in enumerate(stud_list):
-                url = 'modalities?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
+                url = 'modalities?' + self._login_code + \
+                    '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
                       subj_id + '\\&study=' + study
                 output = self._wget_system_call(url).split('\n')
-                #print(output, '==', modality)
 
                 if modality in output:
                     if unique:
-                        return([study,])  # always return a list
+                        return([study, ])  # always return a list
                 else:
                     stud_list[ii] = None
 
@@ -213,8 +220,9 @@ class Query():
         -----
         The choice of a dict as output can be reconsidered.
         """
-        url = 'series?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
-              subj_id + '\\&study=' + study + '\\&modality=' + modality
+        url = 'series?' + self._login_code + '\\&projectCode=' + \
+            self.proj_code + '\\&subjectNo=' + \
+            subj_id + '\\&study=' + study + '\\&modality=' + modality
         output = self._wget_system_call(url)
 
         # Split at '\n'
@@ -271,7 +279,6 @@ class Query():
 
 if __name__ == '__main__':
 
-    #test code
     project_code = 'MEG_service'
 
     Q = Query(proj_code=project_code)

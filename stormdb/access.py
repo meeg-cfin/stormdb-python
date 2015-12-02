@@ -121,7 +121,7 @@ class Query():
 
         try:
             req = requests.get(full_url)
-        except ConnectionError as err:
+        except:
             print('hyades00 is not responding, it may be down.')
             print('Contact a system administrator for confirmation.')
             raise

@@ -59,12 +59,11 @@ class Query():
         self._wget_cmd = 'wget -qO - test ' + self._server
 
         try:
-            with open(os.path.expanduser(stormdblogin)):
+            with open(os.path.expanduser(stormdblogin), 'r',
+                      encoding='utf-8') as fid:
                 if verbose:
                     print('Reading login credentials from ' + stormdblogin)
-                f = open(os.path.expanduser(stormdblogin))
-                self._login_code = f.readline()
-                f.close()
+                self._login_code = fid.readline()
         except IOError:
             print('Login credentials not found, please enter them here')
             print('WARNING: This might not work if you\'re in an IDE '
@@ -76,15 +75,16 @@ class Query():
 
             prompt = 'User \"{:s}\", please enter your password: '.format(usr)
             pwd = getpass(prompt)
+            print(pwd)
 
-            url = 'login/username/' + usr + '/password/' + pwd
-            output = self._wget_system_call(url)
+            url = opj('login/username/', usr, '/password/', pwd)
+            #  output = self._wget_system_call(url)
+            output = self._send_request(url)
             self._login_code = output
 
             print("Code generated, writing to {:s}".format(stormdblogin))
-            fout = open(os.path.expanduser(stormdblogin), 'w')
-            fout.write(self._login_code)
-            fout.close()
+            with open(os.path.expanduser(stormdblogin), 'w') as fout:
+                fout.write(self._login_code.encode('UTF-8'))
             # Use octal representation
             os.chmod(os.path.expanduser(stormdblogin), 0o400)
 

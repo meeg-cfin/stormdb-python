@@ -372,3 +372,39 @@ class Maxfilter():
             self.logger.info('[done]')
         else:
             self.logger.info('Nothing executed.')
+
+    def submit_to_isis(self, n_jobs=1, fake=False, submit_script=None):
+        """ Apply the shell command built before.
+
+        Parameters
+        ----------
+        n_jobs : number or None
+            Number of parallel threads to allow (Intel MKL).
+        fake : bool
+            If true, run a fake run, just print the command that will be
+            submitted.
+        submit_script : str or None
+            Full path to script handling submission. If None (default),
+            the default script is used:
+            /usr/local/common/meeg-cfin/configurations/bin/submit_to_isis
+
+        """
+        if not self.cmd:
+            raise NameError('cmd to submit is not defined yet')
+
+        if submit_script is None:
+            submit_script = '\
+            /usr/local/common/meeg-cfin/configurations/bin/submit_to_isis'
+
+        self.logger.info('Command to submit:\n{:s}'.format(cmd))
+
+        if not fake:
+            submit_cmd = ' '.join((submit_script, '{:d}'.format(n_jobs), cmd))
+            st = os.system(submit_cmd)
+            if st != 0:
+                raise RuntimeError('qsub returned non-zero '
+                                   'exit status {:d}'.format(st))
+        else:
+            print('Fake run, nothing executed. The command built is:')
+            print(submit_cmd)
+            self.logger.info('Nothing executed.')

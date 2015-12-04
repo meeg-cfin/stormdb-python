@@ -11,7 +11,8 @@ Credits:
 # Author: Chris Bailey <cjb@cfin.au.dk>
 #
 # License: BSD (3-clause)
-import os, sys
+import os
+import sys
 import logging
 import numpy as np
 from scipy import optimize, linalg
@@ -88,15 +89,16 @@ class Maxfilter():
 
         """
         # get head digization points, excluding some frontal points (nose etc.)
-        hsp = [p['r'] for p in info['dig'] if p['kind'] == FIFF.FIFFV_POINT_EXTRA
-               and not (p['r'][2] < 0 and p['r'][1] > 0)]
+        hsp = [p['r'] for p in info['dig']
+               if (p['kind'] == FIFF.FIFFV_POINT_EXTRA and not
+                   (p['r'][2] < 0 and p['r'][1] > 0))]
 
-        if not ylim is None:
+        if ylim is not None:
             # self.logger.info("Cutting out points for which "
             #                  "{min:.1f} < y < {max:.1f}".format( \
             #                  min=1e3*ylim[0], max=1e3*ylim[1]))
             hsp = [p for p in hsp if (p[1] > ylim[0] and p[1] < ylim[1])]
-        if not zlim is None:
+        if zlim is not None:
             # self.logger.info("Cutting out points for which "
             #                  "{min:.1f} < y < {max:.1f}".format( \
             #                  min=1e3*zlim[0], max=1e3*zlim[1]))
@@ -127,8 +129,8 @@ class Maxfilter():
 
         # compute origin in device coordinates
         trans = info['dev_head_t']
-        if trans['from'] != FIFF.FIFFV_COORD_DEVICE\
-            or trans['to'] != FIFF.FIFFV_COORD_HEAD:
+        if (trans['from'] != FIFF.FIFFV_COORD_DEVICE or
+            trans['to'] != FIFF.FIFFV_COORD_HEAD):
                 raise RuntimeError('device to head transform not found')
 
         head_to_dev = linalg.inv(trans['trans'])
@@ -396,10 +398,11 @@ class Maxfilter():
             submit_script = '\
             /usr/local/common/meeg-cfin/configurations/bin/submit_to_isis'
 
-        self.logger.info('Command to submit:\n{:s}'.format(cmd))
+        self.logger.info('Command to submit:\n{:s}'.format(self.cmd))
 
         if not fake:
-            submit_cmd = ' '.join((submit_script, '{:d}'.format(n_jobs), cmd))
+            submit_cmd = ' '.join((submit_script,
+                                   '{:d}'.format(n_jobs), self.cmd))
             st = os.system(submit_cmd)
             if st != 0:
                 raise RuntimeError('qsub returned non-zero '

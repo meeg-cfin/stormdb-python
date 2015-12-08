@@ -13,6 +13,7 @@ import subprocess as subp
 from getpass import getuser, getpass
 import os
 import requests
+import urllib
 
 
 class DBError(Exception):
@@ -75,7 +76,7 @@ class Query():
 
             url = 'login/username/' + usr + '/password/' + pwd
             #  output = self._wget_system_call(url)
-            output = self._send_request(url)
+            output = self._send_request(url, verbose=verbose)
             self._login_code = output
 
             print("Code generated, writing to {:s}".format(stormdblogin))
@@ -114,7 +115,7 @@ class Query():
         return(0)
 
     def _send_request(self, url, verbose=False):
-        full_url = self._server + url
+        full_url = self._server + urllib.quote_plus(url)
 
         if verbose:
             print(full_url)
@@ -155,8 +156,8 @@ class Query():
             raise NameError("""subj_type must be either 'included' or
                             'excluded'""")
 
-        url = scode + '?' + self._login_code + '&projectCode=' + \
-              self.proj_code
+        url = scode + '?' + self._login_code + \
+            '&projectCode=' + self.proj_code
         output = self._send_request(url)
         print(output)
 

@@ -54,13 +54,18 @@ class Query():
             raise DBError('No such project!')
 
         self.proj_code = proj_code
+        self._username = username
+        self._stormdblogin = stormdblogin
         self._server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
         #  self._wget_cmd = 'wget -qO - test ' + self._server
+        self._get_login_code(username=username, verbose=verbose)
 
+    def _get_login_code(self, username=None, verbose=False):
         try:
-            with open(os.path.expanduser(stormdblogin), 'r') as fid:
+            with open(os.path.expanduser(self._stormdblogin), 'r') as fid:
                 if verbose:
-                    print('Reading login credentials from ' + stormdblogin)
+                    print('Reading login credentials from ' + \
+                            self._stormdblogin)
                 self._login_code = fid.readline()
         except IOError:
             print('Login credentials not found, please enter them here')
@@ -74,57 +79,36 @@ class Query():
             prompt = 'User \"{:s}\", please enter your password: '.format(usr)
             pwd = getpass(prompt)
 
-            url = 'login/username/' + usr + '/password/' + pwd
-            #  output = self._wget_system_call(url)
-            output = self._send_request(url, verbose=verbose)
+            url = 'login/username/' + usr + \
+                    '/password/' + urllib.quote_plus(pwd)
+            output = self._send_request(url, verbose=False)  # never echo pw
 
-            try:
-                self._check_response(output, error_str='404 Not Found')
-            except DBError as err:
-                print("Login to database failed, please make sure you type "
-                      "your password in correcty.")
-                self._login_code = None
-            else:
-                print("Code generated, writing to {:s}".format(stormdblogin))
-                self._login_code = output
+            # If we get this far, no DBError was issued above
+            print("Code generated, writing to {:s}".format(self._stormdblogin))
+            self._login_code = output
 
-                with open(os.path.expanduser(stormdblogin), 'w') as fout:
-                    fout.write(self._login_code.encode('UTF-8'))
-                # Use octal representation
-                os.chmod(os.path.expanduser(stormdblogin), 0o400)
+            with open(os.path.expanduser(self._stormdblogin), 'w') as fout:
+                fout.write(self._login_code.encode('UTF-8'))
+            # Use octal representation
+            os.chmod(os.path.expanduser(self._stormdblogin), 0o400)
 
-    @staticmethod
-    def _wget_error_handling(stdout):
-        if stdout.find('error') != -1:
-            raise DBError(stdout)
-
-        return(0)
-
-    def _wget_system_call(self, url, verbose=False):
-        cmd = self._wget_cmd + url
-
-        if verbose:
-            print(cmd)
-
-        pipe = subp.Popen(cmd, stdout=subp.PIPE, stderr=subp.PIPE, shell=True)
-        output, stderr = pipe.communicate()
-
-        self._wget_error_handling(output.decode(encoding='UTF-8'))
-
-        # Python 3.x treats pipe strings as bytes, which need to be encoded
-        # Here assuming shell output is in UTF-8
-        return(output.decode(encoding='UTF-8'))
-
-    @staticmethod
-    def _check_response(response, error_str='error'):
+    def _check_response(self, response, error_str='error'):
         if response.find(error_str) != -1:
+            if response.find('Your login is not working') != -1:
+                msg = 'Looks like your ~/.stormdblogin is old/broken ' +\
+                      'and will be removed. Please enter your credentials' +\
+                      'and re-run your query.'
+                os.chmod(os.path.expanduser(self._stormdblogin), 0o600)
+                os.remove(os.path.expanduser(self._stormdblogin))
+                response = msg
+                self._get_login_code()
+
             raise DBError(response)
 
         return(0)
 
     def _send_request(self, url, verbose=False):
-        full_url = self._server + urllib.quote_plus(url)
-
+        full_url = self._server + url 
         if verbose:
             print(full_url)
 
@@ -135,11 +119,12 @@ class Query():
             print('Contact a system administrator for confirmation.')
             raise
 
-        self._check_response(req.content.decode(encoding='UTF-8'))
+        response = req.content.decode(encoding='UTF-8')
+        self._check_response(response)
 
         # Python 3.x treats pipe strings as bytes, which need to be encoded
         # Here assuming shell output is in UTF-8
-        return(req.content.decode(encoding='UTF-8'))
+        return(response)
 
     def get_subjects(self, subj_type='included'):
         """Get list of subjects from database

@@ -77,13 +77,21 @@ class Query():
             url = 'login/username/' + usr + '/password/' + pwd
             #  output = self._wget_system_call(url)
             output = self._send_request(url, verbose=verbose)
-            self._login_code = output
 
-            print("Code generated, writing to {:s}".format(stormdblogin))
-            with open(os.path.expanduser(stormdblogin), 'w') as fout:
-                fout.write(self._login_code.encode('UTF-8'))
-            # Use octal representation
-            os.chmod(os.path.expanduser(stormdblogin), 0o400)
+            try:
+                self._check_response(output, error_str='404 Not Found')
+            except DBError as err:
+                print("Login to database failed, please make sure you type "
+                      "your password in correcty.")
+                self._login_code = None
+            else:
+                print("Code generated, writing to {:s}".format(stormdblogin))
+                self._login_code = output
+
+                with open(os.path.expanduser(stormdblogin), 'w') as fout:
+                    fout.write(self._login_code.encode('UTF-8'))
+                # Use octal representation
+                os.chmod(os.path.expanduser(stormdblogin), 0o400)
 
     @staticmethod
     def _wget_error_handling(stdout):
@@ -108,8 +116,8 @@ class Query():
         return(output.decode(encoding='UTF-8'))
 
     @staticmethod
-    def _check_response(response):
-        if response.find('error') != -1:
+    def _check_response(response, error_str='error'):
+        if response.find(error_str) != -1:
             raise DBError(response)
 
         return(0)

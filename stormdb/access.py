@@ -9,7 +9,6 @@ Methods to interact with the STORM database
 # License: BSD (3-clause)
 
 
-import subprocess as subp
 from getpass import getuser, getpass
 import os
 import requests
@@ -64,8 +63,8 @@ class Query():
         try:
             with open(os.path.expanduser(self._stormdblogin), 'r') as fid:
                 if verbose:
-                    print('Reading login credentials from ' + \
-                            self._stormdblogin)
+                    print('Reading login credentials from ' +
+                          self._stormdblogin)
                 self._login_code = fid.readline()
         except IOError:
             print('Login credentials not found, please enter them here')
@@ -80,7 +79,7 @@ class Query():
             pwd = getpass(prompt)
 
             url = 'login/username/' + usr + \
-                    '/password/' + urllib.quote_plus(pwd)
+                  '/password/' + urllib.quote_plus(pwd)
             output = self._send_request(url, verbose=False)  # never echo pw
 
             # If we get this far, no DBError was issued above
@@ -108,7 +107,7 @@ class Query():
         return(0)
 
     def _send_request(self, url, verbose=False):
-        full_url = self._server + url 
+        full_url = self._server + url
         if verbose:
             print(full_url)
 

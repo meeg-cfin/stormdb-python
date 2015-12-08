@@ -9,9 +9,11 @@ Methods to interact with the STORM database
 # License: BSD (3-clause)
 
 
-import subprocess as subp
 from getpass import getuser, getpass
 import os
+import requests
+import urllib
+
 
 class DBError(Exception):
     """
@@ -19,6 +21,7 @@ class DBError(Exception):
     """
     def __init__(self, value):
         self.value = value
+
     def __str__(self):
         return repr(self.value)
 
@@ -44,24 +47,29 @@ class Query():
         Name of project
     """
 
-    def __init__(self, proj_code, stormdblogin='~/.stormdblogin', username=None, verbose=None):
+    def __init__(self, proj_code, stormdblogin='~/.stormdblogin',
+                 username=None, verbose=None):
         if not os.path.exists('/projects/' + proj_code):
             raise DBError('No such project!')
 
         self.proj_code = proj_code
+        self._username = username
+        self._stormdblogin = stormdblogin
         self._server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
-        self._wget_cmd = 'wget -qO - test ' + self._server
+        #  self._wget_cmd = 'wget -qO - test ' + self._server
+        self._get_login_code(username=username, verbose=verbose)
 
+    def _get_login_code(self, username=None, verbose=False):
         try:
-            with open(os.path.expanduser(stormdblogin)):
+            with open(os.path.expanduser(self._stormdblogin), 'r') as fid:
                 if verbose:
-                    print('Reading login credentials from ' + stormdblogin)
-                f = open(os.path.expanduser(stormdblogin))
-                self._login_code = f.readline()
-                f.close()
+                    print('Reading login credentials from ' +
+                          self._stormdblogin)
+                self._login_code = fid.readline()
         except IOError:
             print('Login credentials not found, please enter them here')
-            print('WARNING: This might not work if you\'re in an IDE (e.g. spyder)!')
+            print('WARNING: This might not work if you\'re in an IDE '
+                  '(e.g. spyder)!')
             if username:
                 usr = username
             else:
@@ -70,38 +78,52 @@ class Query():
             prompt = 'User \"{:s}\", please enter your password: '.format(usr)
             pwd = getpass(prompt)
 
-            url = 'login/username/' + usr + '/password/' + pwd
-            output = self._wget_system_call(url)
-            self._login_code = output
-            #stormdblogin='~/.stormdbdblogin'
-            print("Code generated, writing to {:s}".format(stormdblogin))
-            fout = open(os.path.expanduser(stormdblogin), 'w')
-            fout.write(self._login_code)
-            fout.close()
-            # Use octal representation
-            os.chmod(os.path.expanduser(stormdblogin), 0o400)
+            url = 'login/username/' + usr + \
+                  '/password/' + urllib.quote_plus(pwd)
+            output = self._send_request(url, verbose=False)  # never echo pw
 
-    @staticmethod
-    def _wget_error_handling(stdout):
-        if stdout.find('error') != -1:
-            raise DBError(stdout)
+            # If we get this far, no DBError was issued above
+            print("Code generated, writing to {:s}".format(self._stormdblogin))
+            self._login_code = output
+
+            with open(os.path.expanduser(self._stormdblogin), 'w') as fout:
+                fout.write(self._login_code.encode('UTF-8'))
+            # Use octal representation
+            os.chmod(os.path.expanduser(self._stormdblogin), 0o400)
+
+    def _check_response(self, response, error_str='error'):
+        if response.find(error_str) != -1:
+            if response.find('Your login is not working') != -1:
+                msg = 'Looks like your ~/.stormdblogin is old/broken ' +\
+                      'and will be removed. Please enter your credentials' +\
+                      'and re-run your query.'
+                os.chmod(os.path.expanduser(self._stormdblogin), 0o600)
+                os.remove(os.path.expanduser(self._stormdblogin))
+                response = msg
+                self._get_login_code()
+
+            raise DBError(response)
 
         return(0)
 
-    def _wget_system_call(self, url, verbose=False):
-        cmd = self._wget_cmd + url
-
+    def _send_request(self, url, verbose=False):
+        full_url = self._server + url
         if verbose:
-            print(cmd)
+            print(full_url)
 
-        pipe = subp.Popen(cmd, stdout=subp.PIPE, stderr=subp.PIPE, shell=True)
-        output, stderr = pipe.communicate()
+        try:
+            req = requests.get(full_url)
+        except:
+            print('hyades00 is not responding, it may be down.')
+            print('Contact a system administrator for confirmation.')
+            raise
 
-        self._wget_error_handling(output.decode(encoding='UTF-8'))
+        response = req.content.decode(encoding='UTF-8')
+        self._check_response(response)
 
         # Python 3.x treats pipe strings as bytes, which need to be encoded
         # Here assuming shell output is in UTF-8
-        return(output.decode(encoding='UTF-8'))
+        return(response)
 
     def get_subjects(self, subj_type='included'):
         """Get list of subjects from database
@@ -126,8 +148,10 @@ class Query():
             raise NameError("""subj_type must be either 'included' or
                             'excluded'""")
 
-        url = scode + '?' + self._login_code + '\\&projectCode=' + self.proj_code
-        output = self._wget_system_call(url)
+        url = scode + '?' + self._login_code + \
+            '&projectCode=' + self.proj_code
+        output = self._send_request(url)
+        print(output)
 
         # Split at '\n'
         subj_list = output.split('\n')
@@ -160,8 +184,9 @@ class Query():
             If no studies are found, an empty list is returned
         """
 
-        url = 'studies?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + subj_id
-        output = self._wget_system_call(url)
+        url = 'studies?' + self._login_code + \
+            '&projectCode=' + self.proj_code + '&subjectNo=' + subj_id
+        output = self._send_request(url)
 
         # Split at '\n'
         stud_list = output.split('\n')
@@ -170,14 +195,14 @@ class Query():
 
         if modality:
             for ii, study in enumerate(stud_list):
-                url = 'modalities?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
-                      subj_id + '\\&study=' + study
-                output = self._wget_system_call(url).split('\n')
-                #print(output, '==', modality)
+                url = 'modalities?' + self._login_code + \
+                    '&projectCode=' + self.proj_code + '&subjectNo=' + \
+                      subj_id + '&study=' + study
+                output = self._send_request(url).split('\n')
 
                 if modality in output:
                     if unique:
-                        return([study,])  # always return a list
+                        return([study, ])  # always return a list
                 else:
                     stud_list[ii] = None
 
@@ -213,9 +238,10 @@ class Query():
         -----
         The choice of a dict as output can be reconsidered.
         """
-        url = 'series?' + self._login_code + '\\&projectCode=' + self.proj_code + '\\&subjectNo=' + \
-              subj_id + '\\&study=' + study + '\\&modality=' + modality
-        output = self._wget_system_call(url)
+        url = 'series?' + self._login_code + '&projectCode=' + \
+            self.proj_code + '&subjectNo=' + \
+            subj_id + '&study=' + study + '&modality=' + modality
+        output = self._send_request(url)
 
         # Split at '\n'
         series_list = output.split('\n')
@@ -256,10 +282,10 @@ class Query():
         if type(series) is int:
             series = str(series)
 
-        url = 'files?' + self._login_code + '\\&projectCode=' + \
-              self.proj_code + '\\&subjectNo=' + subj_id + '\\&study=' + \
-              study + '\\&modality=' + modality + '\\&serieNo=' + series
-        output = self._wget_system_call(url)
+        url = 'files?' + self._login_code + '&projectCode=' + \
+              self.proj_code + '&subjectNo=' + subj_id + '&study=' + \
+              study + '&modality=' + modality + '&serieNo=' + series
+        output = self._send_request(url)
 
         # Split at '\n'
         file_list = output.split('\n')
@@ -271,7 +297,6 @@ class Query():
 
 if __name__ == '__main__':
 
-    #test code
     project_code = 'MEG_service'
 
     Q = Query(proj_code=project_code)

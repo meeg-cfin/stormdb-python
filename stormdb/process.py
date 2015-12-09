@@ -151,6 +151,10 @@ class Maxfilter():
 
         """ Build a NeuroMag MaxFilter command for later execution.
 
+        Things to implement
+        * check that cal-file matches date in infile!
+        * check that maxfilter binary is OK
+
         Parameters
         ----------
         in_fname : string
@@ -376,12 +380,16 @@ class Maxfilter():
             self.logger.info('Nothing executed.')
 
     def submit_to_isis(self, n_jobs=1, fake=False, submit_script=None):
-        """ Apply the shell command built before.
+        """ Submit the command built before for processing on the cluster.
+
+        Things to implement
+        * check n_jobs is sane
+        * check output?
 
         Parameters
         ----------
         n_jobs : number or None
-            Number of parallel threads to allow (Intel MKL).
+            Number of parallel threads to allow (Intel MKL). Max 12!
         fake : bool
             If true, run a fake run, just print the command that will be
             submitted.

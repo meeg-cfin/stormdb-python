@@ -46,6 +46,8 @@ class Maxfilter():
             raise DBError('No such project!')
 
         self.proj_code = proj_code
+        self.cmd = ''  # No command defined at init
+        # Consider placing other vars here
 
         self.logger = logging.getLogger('__name__')
         self.logger.propagate=False
@@ -146,8 +148,8 @@ class Maxfilter():
                         movecomp=False, mv_headpos=False, mv_hp=None,
                         mv_hpistep=None, mv_hpisubt=None, hpicons=True,
                         linefreq=None, cal=None, ctc=None, mx_args='',
-                        maxfilter_bin='maxfilter', logfile=None,
-                        n_threads=None):
+                        maxfilter_bin='/neuro/bin/util/maxfilter',
+                        logfile=None, n_threads=None):
 
         """ Build a NeuroMag MaxFilter command for later execution.
 
@@ -408,9 +410,9 @@ class Maxfilter():
 
         self.logger.info('Command to submit:\n{:s}'.format(self.cmd))
 
+        submit_cmd = ' '.join((submit_script,
+                               '{:d}'.format(n_jobs), self.cmd))
         if not fake:
-            submit_cmd = ' '.join((submit_script,
-                                   '{:d}'.format(n_jobs), self.cmd))
             st = os.system(submit_cmd)
             if st != 0:
                 raise RuntimeError('qsub returned non-zero '

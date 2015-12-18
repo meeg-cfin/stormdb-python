@@ -385,7 +385,6 @@ class Maxfilter():
         """ Submit the command built before for processing on the cluster.
 
         Things to implement
-        * check n_jobs is sane
         * check output?
 
         Parameters
@@ -404,9 +403,17 @@ class Maxfilter():
         if not self.cmd:
             raise NameError('cmd to submit is not defined yet')
 
+        if n_jobs > 12:
+            raise ValueError('isis only has 12 cores!')
+        elif n_jobs < 1 or type(n_jobs) is not int:
+            raise ValueError('number of jobs must be a positive integer!')
+
         if submit_script is None:
             submit_script = '\
             /usr/local/common/meeg-cfin/configurations/bin/submit_to_isis'
+
+        if os.system(submit_script + ' 2>&1 > /dev/null') >> 8 == 127:
+            raise NameError('submit script ' + submit_script + ' not found')
 
         self.logger.info('Command to submit:\n{:s}'.format(self.cmd))
 

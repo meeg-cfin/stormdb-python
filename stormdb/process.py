@@ -337,50 +337,6 @@ class Maxfilter():
 
         self.cmd = cmd
 
-
-    def apply_cmd(self, force=False, n_threads=1):
-        """ Apply the shell command built before.
-
-        Parameters
-        ----------
-        force : bool
-            If False (default), user must confirm execution of the command
-            before it is initiated.
-            NB! IT IS THE RESPONSIBILITY OF THE USER TO MAKE SURE NO
-                HARMFUL COMMANDS ARE EXECUTED!
-        n_threads : number or None
-            Number of parallel threads to allow (Intel MKL).
-
-        """
-        if not self.cmd:
-            raise NameError('cmd to run is not defined yet')
-
-        # If None, the number is read from the file
-        # /neuro/setup/maxfilter/maxfilter.defs
-        # if n_threads is None:
-        #     with open('/neuro/setup/maxfilter/maxfilter.defs', 'rt') as fid:
-        #         for n,line in enumerate(fid):
-        #             if 'maxthreads' in line:
-        #                 n_threads = int(line.split()[1]) # This is a int!!
-
-        MAXTHREADS = 'OMP_NUM_THREADS={:d} '.format(n_threads) #This is an int!
-        cmd = MAXTHREADS + self.cmd
-
-        self.logger.info('Command to run:\n{:s}'.format(cmd))
-
-        ans = 'n'
-        if not force:
-            ans = input('Are you sure you want '
-                        'to run this? [y/N] ').lower()
-        if ans == 'y' or force:
-            pass
-            #    st = os.system(cmd)
-            #    if st != 0:
-            #        raise RuntimeError('MaxFilter returned non-zero exit status %d' % st)
-            self.logger.info('[done]')
-        else:
-            self.logger.info('Nothing executed.')
-
     def submit_to_isis(self, n_jobs=1, fake=False, submit_script=None):
         """ Submit the command built before for processing on the cluster.
 

@@ -11,7 +11,8 @@ Credits:
 # Author: Chris Bailey <cjb@cfin.au.dk>
 #
 # License: BSD (3-clause)
-import os, sys
+import os
+import sys
 import logging
 import numpy as np
 from scipy import optimize, linalg
@@ -45,6 +46,8 @@ class Maxfilter():
             raise DBError('No such project!')
 
         self.proj_code = proj_code
+        self.cmd = ''  # No command defined at init
+        # Consider placing other vars here
 
         self.logger = logging.getLogger('__name__')
         self.logger.propagate=False
@@ -88,15 +91,16 @@ class Maxfilter():
 
         """
         # get head digization points, excluding some frontal points (nose etc.)
-        hsp = [p['r'] for p in info['dig'] if p['kind'] == FIFF.FIFFV_POINT_EXTRA
-               and not (p['r'][2] < 0 and p['r'][1] > 0)]
+        hsp = [p['r'] for p in info['dig']
+               if (p['kind'] == FIFF.FIFFV_POINT_EXTRA and not
+                   (p['r'][2] < 0 and p['r'][1] > 0))]
 
-        if not ylim is None:
+        if ylim is not None:
             # self.logger.info("Cutting out points for which "
             #                  "{min:.1f} < y < {max:.1f}".format( \
             #                  min=1e3*ylim[0], max=1e3*ylim[1]))
             hsp = [p for p in hsp if (p[1] > ylim[0] and p[1] < ylim[1])]
-        if not zlim is None:
+        if zlim is not None:
             # self.logger.info("Cutting out points for which "
             #                  "{min:.1f} < y < {max:.1f}".format( \
             #                  min=1e3*zlim[0], max=1e3*zlim[1]))
@@ -127,8 +131,8 @@ class Maxfilter():
 
         # compute origin in device coordinates
         trans = info['dev_head_t']
-        if trans['from'] != FIFF.FIFFV_COORD_DEVICE\
-            or trans['to'] != FIFF.FIFFV_COORD_HEAD:
+        if (trans['from'] != FIFF.FIFFV_COORD_DEVICE or
+            trans['to'] != FIFF.FIFFV_COORD_HEAD):
                 raise RuntimeError('device to head transform not found')
 
         head_to_dev = linalg.inv(trans['trans'])
@@ -144,10 +148,14 @@ class Maxfilter():
                         movecomp=False, mv_headpos=False, mv_hp=None,
                         mv_hpistep=None, mv_hpisubt=None, hpicons=True,
                         linefreq=None, cal=None, ctc=None, mx_args='',
-                        maxfilter_bin='maxfilter', logfile=None,
-                        n_threads=None):
+                        maxfilter_bin='/neuro/bin/util/maxfilter',
+                        logfile=None, n_threads=None):
 
         """ Build a NeuroMag MaxFilter command for later execution.
+
+        Things to implement
+        * check that cal-file matches date in infile!
+        * check that maxfilter binary is OK
 
         Parameters
         ----------
@@ -329,46 +337,50 @@ class Maxfilter():
 
         self.cmd = cmd
 
+    def submit_to_isis(self, n_jobs=1, fake=False, submit_script=None):
+        """ Submit the command built before for processing on the cluster.
 
-    def apply_cmd(self, force=False, n_threads=1):
-        """ Apply the shell command built before.
+        Things to implement
+        * check output?
 
         Parameters
         ----------
-        force : bool
-            If False (default), user must confirm execution of the command
-            before it is initiated.
-            NB! IT IS THE RESPONSIBILITY OF THE USER TO MAKE SURE NO
-                HARMFUL COMMANDS ARE EXECUTED!
-        n_threads : number or None
-            Number of parallel threads to allow (Intel MKL).
+        n_jobs : number or None
+            Number of parallel threads to allow (Intel MKL). Max 12!
+        fake : bool
+            If true, run a fake run, just print the command that will be
+            submitted.
+        submit_script : str or None
+            Full path to script handling submission. If None (default),
+            the default script is used:
+            /usr/local/common/meeg-cfin/configurations/bin/submit_to_isis
 
         """
         if not self.cmd:
-            raise NameError('cmd to run is not defined yet')
+            raise NameError('cmd to submit is not defined yet')
 
-        # If None, the number is read from the file
-        # /neuro/setup/maxfilter/maxfilter.defs
-        # if n_threads is None:
-        #     with open('/neuro/setup/maxfilter/maxfilter.defs', 'rt') as fid:
-        #         for n,line in enumerate(fid):
-        #             if 'maxthreads' in line:
-        #                 n_threads = int(line.split()[1]) # This is a int!!
+        if n_jobs > 12:
+            raise ValueError('isis only has 12 cores!')
+        elif n_jobs < 1 or type(n_jobs) is not int:
+            raise ValueError('number of jobs must be a positive integer!')
 
-        MAXTHREADS = 'OMP_NUM_THREADS={:d} '.format(n_threads) #This is an int!
-        cmd = MAXTHREADS + self.cmd
+        if submit_script is None:
+            submit_script = '\
+            /usr/local/common/meeg-cfin/configurations/bin/submit_to_isis'
 
-        self.logger.info('Command to run:\n{:s}'.format(cmd))
+        if os.system(submit_script + ' 2>&1 > /dev/null') >> 8 == 127:
+            raise NameError('submit script ' + submit_script + ' not found')
 
-        ans = 'n'
-        if not force:
-            ans = input('Are you sure you want '
-                        'to run this? [y/N] ').lower()
-        if ans == 'y' or force:
-            pass
-            #    st = os.system(cmd)
-            #    if st != 0:
-            #        raise RuntimeError('MaxFilter returned non-zero exit status %d' % st)
-            self.logger.info('[done]')
+        self.logger.info('Command to submit:\n{:s}'.format(self.cmd))
+
+        submit_cmd = ' '.join((submit_script,
+                               '{:d}'.format(n_jobs), self.cmd))
+        if not fake:
+            st = os.system(submit_cmd)
+            if st != 0:
+                raise RuntimeError('qsub returned non-zero '
+                                   'exit status {:d}'.format(st))
         else:
+            print('Fake run, nothing executed. The command built is:')
+            print(submit_cmd)
             self.logger.info('Nothing executed.')

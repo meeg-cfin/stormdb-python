@@ -321,8 +321,8 @@ class Query():
         study = ''
         modality = ''
         types = ''
-        anywithtype = ''
-        excluded = ''
+        anywithtype = '0'
+        excluded = '0'
         meta_str = ''
         outp = ''
         removeProjects = ''
@@ -333,10 +333,13 @@ class Query():
               '&types=' + types + '&anyWithType=' + anywithtype + \
               '&description=' + description + '&excluded=' + excluded +\
               '&' + meta_str + outp + '&removeProjects=' + removeProjects
+        print(url)
         output = self._send_request(url)
 
-        # Split at '$'
-        file_list = output.split('$')
+        # Split at '\n'
+        file_list = output.split('\n')
+        if file_list[-1] == '':
+            file_list = file_list[:-1]
         # Remove any empty entries!
         # file_list = [x for x in file_list if x]
 

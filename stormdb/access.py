@@ -294,6 +294,55 @@ class Query():
 
         return(file_list)
 
+    def filter_series(self, description='', return_files=True):
+        """Get list of files from database for specified subject, study,
+        modality and series.
+
+        Parameters
+        ----------
+        subj_id : str
+            A string uniquely identifying a subject in the database.
+            For example: '0001_ABC'
+        study : str
+            A string uniquely identifying a study in the database for
+            given subject.
+        modality : str
+            A string defining the modality of the study to get.
+        series : str or int
+            A string or int defining the index (1-based) of the series to get.
+
+        Returns
+        -------
+        files : list of str
+            List of absolute pathnames to file(s) in series. If no files are
+            found, an empty list is returned.
+        """
+        subj_id = ''
+        study = ''
+        modality = ''
+        types = ''
+        anywithtype = ''
+        excluded = ''
+        meta_str = ''
+        outp = ''
+        removeProjects = ''
+
+        url = 'filteredseries?' + self._login_code + '&projectCode=' + \
+              self.proj_code + '&subjectNo=' + subj_id + '&study=' + \
+              study + '&modality=' + modality + \
+              '&types=' + types + '&anyWithType=' + anywithtype + \
+              '&description=' + description + '&excluded=' + excluded +\
+              '&' + meta_str + outp + '&removeProjects=' + removeProjects
+        output = self._send_request(url)
+
+        # Split at '$'
+        file_list = output.split('$')
+        # Remove any empty entries!
+        # file_list = [x for x in file_list if x]
+
+        if return_files:
+            return(file_list)
+
 
 if __name__ == '__main__':
 

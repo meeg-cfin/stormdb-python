@@ -357,7 +357,6 @@ class Query():
               '&types=' + types + '&anyWithType=' + anywithtype + \
               '&description=' + description + '&excluded=' + excluded +\
               '&' + meta_str + outp + '&removeProjects=' + removeProjects
-        print(url)
         output = self._send_request(url)
 
         # Split at '\n'

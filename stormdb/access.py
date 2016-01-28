@@ -294,42 +294,66 @@ class Query():
 
         return(file_list)
 
-    def filter_series(self, description='', return_files=True):
+    def filter_series(self, subj_ids='', studies='', modalities='MEG',
+                      description='', study_metas='', return_files=True):
         """Get list of files from database for specified subject, study,
         modality and series.
 
         Parameters
         ----------
-        subj_id : str
-            A string uniquely identifying a subject in the database.
-            For example: '0001_ABC'
-        study : str
+        subj_ids : str
+            A pipe-separated ('|') string identifying one or more subjects in
+            the database. For example: '0001_ABC|0010_XYZ'
+        studies : str
             A string uniquely identifying a study in the database for
             given subject.
-        modality : str
-            A string defining the modality of the study to get.
+        modalities : str
+            A string defining the modalities of the study to get. Modalities
+            can be separated using a pipe (|), e.g., 'MEG|MR'.
         series : str or int
             A string or int defining the index (1-based) of the series to get.
+        study_metas : dict
+            A dictionary with fields "name" and "value", e.g.,
+            dict(name='timepoint', comparison='=', value=2).
+        return_files : bool
+            Default is True: return the names of the files for each series.
 
         Returns
         -------
-        files : list of str
-            List of absolute pathnames to file(s) in series. If no files are
-            found, an empty list is returned.
+        info_dict_list : list of dict
+            List of dictionaries containing information for each series
+            matching the filter settings. The important keys are:
+                path : str
+                    path to files
+                files : list of str
+                    list of strings with file names
         """
-        subj_id = ''
-        study = ''
-        modality = ''
-        types = ''
-        anywithtype = '0'
+        types = ''  # return all types of series (DICOM)
+        anywithtype = '0'  # even return series without a type
         excluded = '0'
         meta_str = ''
         outp = ''
         removeProjects = ''
 
+        if isinstance(study_metas, dict):
+            # do some checking here...
+            try:
+                meta_str += 'studymetas[{:s}]={:s}${:d}&'.\
+                    format(study_metas['name'],
+                           study_metas['comparison'],
+                           study_metas['value'])
+            except:
+                print('Problem with study_metas:')
+                print(study_metas)
+                raise
+
+        if return_files:
+            # do some checking here...
+            outp += 'outputoptions[inclfiles]=1&'
+
         url = 'filteredseries?' + self._login_code + '&projectCode=' + \
-              self.proj_code + '&subjectNo=' + subj_id + '&study=' + \
-              study + '&modality=' + modality + \
+              self.proj_code + '&subjects=' + subj_ids + '&studies=' + \
+              studies + '&modalities=' + modalities + \
               '&types=' + types + '&anyWithType=' + anywithtype + \
               '&description=' + description + '&excluded=' + excluded +\
               '&' + meta_str + outp + '&removeProjects=' + removeProjects
@@ -337,14 +361,22 @@ class Query():
         output = self._send_request(url)
 
         # Split at '\n'
-        file_list = output.split('\n')
-        if file_list[-1] == '':
-            file_list = file_list[:-1]
+        info_list = output.split('\n')
         # Remove any empty entries!
-        # file_list = [x for x in file_list if x]
+        info_list = [x for x in info_list if x]
 
-        if return_files:
-            return(file_list)
+        info_dict_list = []
+        for l in info_list:
+            info = []
+            for s in l.split('$'):
+                foo = s.split(':')
+                if 'files' in foo[0]:
+                    foo[1] = foo[1].split('|')
+                info.append(foo)
+            info_dict = {key: value for (key, value) in info}
+            info_dict_list.append(info_dict)
+
+        return(info_dict_list)
 
 
 if __name__ == '__main__':

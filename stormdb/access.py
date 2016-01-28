@@ -365,13 +365,13 @@ class Query():
         info_list = [x for x in info_list if x]
 
         info_dict_list = []
-        for l in info_list:
-            info = []
-            for s in l.split('$'):
-                foo = s.split(':')
-                if 'files' in foo[0]:
-                    foo[1] = foo[1].split('|')
-                info.append(foo)
+        for il in info_list:
+            info = []  # for each matched series, prepare a new dict
+            for kvp in il.split('$'):
+                key_val_pair = kvp.split(':')
+                if 'files' in key_val_pair[0]:
+                    key_val_pair[1] = key_val_pair[1].split('|')
+                info.append(key_val_pair)
             info_dict = {key: value for (key, value) in info}
             info_dict_list.append(info_dict)
 

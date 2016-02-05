@@ -20,7 +20,7 @@ class CleanCommand(Command):
 
 setup(
     name = "stormdb",
-    version = "0.2",
+    version = "0.3",
     author = "Christopher Bailey",
     author_email = "cjb@cfin.au.dk",
     description = ("Access to StormDb @ CFIN"),

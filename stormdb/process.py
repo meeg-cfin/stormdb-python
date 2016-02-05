@@ -142,14 +142,15 @@ class Maxfilter():
         return radius, origin_head, origin_device
 
 
-    def build_maxfilter_cmd(self, in_fname, out_fname, origin='0 0 40', frame='head',
-                        bad=None, autobad='off', skip=None, force=False,
-                        st=False, st_buflen=16.0, st_corr=0.96, mv_trans=None,
-                        movecomp=False, mv_headpos=False, mv_hp=None,
-                        mv_hpistep=None, mv_hpisubt=None, hpicons=True,
-                        linefreq=None, cal=None, ctc=None, mx_args='',
-                        maxfilter_bin='/neuro/bin/util/maxfilter',
-                        logfile=None, n_threads=None):
+    def build_maxfilter_cmd(self, in_fname, out_fname, origin='0 0 40',
+                            frame='head', bad=None, autobad='off', skip=None,
+                            force=False, st=False, st_buflen=16.0,
+                            st_corr=0.96, mv_trans=None, movecomp=False,
+                            mv_headpos=False, mv_hp=None, mv_hpistep=None,
+                            mv_hpisubt=None, hpicons=True, linefreq=None,
+                            cal=None, ctc=None, mx_args='',
+                            maxfilter_bin='/neuro/bin/util/maxfilter',
+                            logfile=None, n_threads=None):
 
         """ Build a NeuroMag MaxFilter command for later execution.
 

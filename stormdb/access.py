@@ -297,13 +297,15 @@ class Query():
     def filter_series(self, subj_ids='', studies='', modalities='MEG',
                       description='', study_metas='', return_files=True):
         """Get list of files from database for specified subject, study,
-        modality and series.
+        modality and series. NB: Any of the string-parameters can be left
+        empty (''), in which case all hits matching the other criteria are
+        returned.
 
         Parameters
         ----------
         subj_ids : str
             A pipe-separated ('|') string identifying one or more subjects in
-            the database. For example: '0001_ABC|0010_XYZ'
+            the database. For example: '0001_ABC|0010_XYZ'.
         studies : str
             A string uniquely identifying a study in the database for
             given subject.
@@ -313,7 +315,7 @@ class Query():
         series : str or int
             A string or int defining the index (1-based) of the series to get.
         study_metas : dict
-            A dictionary with fields "name" and "value", e.g.,
+            A dictionary with fields "name", "comparison" and "value", e.g.,
             dict(name='timepoint', comparison='=', value=2).
         return_files : bool
             Default is True: return the names of the files for each series.
@@ -323,10 +325,13 @@ class Query():
         info_dict_list : list of dict
             List of dictionaries containing information for each series
             matching the filter settings. The important keys are:
-                path : str
-                    path to files
-                files : list of str
-                    list of strings with file names
+
+            subjectcode : str
+                The database subject code in the form NNNN_XYZ
+            path : str
+                path to files
+            files : list of str
+                list of strings with file names
         """
         types = ''  # return all types of series (DICOM)
         anywithtype = '0'  # even return series without a type

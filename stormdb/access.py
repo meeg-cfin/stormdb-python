@@ -294,29 +294,31 @@ class Query():
 
         return(file_list)
 
-    def filter_series(self, subj_ids='', studies='', modalities='MEG',
-                      description='', study_metas='', return_files=True):
-        """Get list of files from database for specified subject, study,
-        modality and series. NB: Any of the string-parameters can be left
-        empty (''), in which case all hits matching the other criteria are
-        returned.
+    def filter_series(self, description, subj_ids='', modalities='MEG',
+                      study_metas='', return_files=True):
+        """Select series based on their description (name)
+
+        Get list of series (and corresponding files) from database matching
+        a description. Queries may be performed on specific subject(s) and
+        modalities. In addition, study-level meta-information can be used.
 
         Parameters
         ----------
+        description : str
+            A string containing the name of the series to extract. The
+            asterisk ('*') may be used as a wildcard.
         subj_ids : str
             A pipe-separated ('|') string identifying one or more subjects in
-            the database. For example: '0001_ABC|0010_XYZ'.
-        studies : str
-            A string uniquely identifying a study in the database for
-            given subject.
+            the database. For example: '0001_ABC|0010_XYZ'. The empty string
+            ('', default) is equivalent to all non-excluded subjects.
         modalities : str
             A string defining the modalities of the study to get. Modalities
-            can be separated using a pipe (|), e.g., 'MEG|MR'.
-        series : str or int
-            A string or int defining the index (1-based) of the series to get.
-        study_metas : dict
+            can be separated using a pipe (|), e.g., 'MEG|MR'. Default: 'MEG'
+             The empty string ('') is equivalent to all modalities.
+        study_metas : dict or None
             A dictionary with fields "name", "comparison" and "value", e.g.,
-            dict(name='timepoint', comparison='=', value=2).
+            dict(name='timepoint', comparison='=', value=2). By default all
+            studies are returned.
         return_files : bool
             Default is True: return the names of the files for each series.
 
@@ -336,6 +338,7 @@ class Query():
         types = ''  # return all types of series (DICOM)
         anywithtype = '0'  # even return series without a type
         excluded = '0'
+        studies = ''  # for study-filtering, use either metas or write new func
         meta_str = ''
         outp = ''
         removeProjects = ''

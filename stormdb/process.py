@@ -101,11 +101,13 @@ class Maxfilter():
                 raise RuntimeError(errmsg)
 
         # CHECKME!
+        bads_str = []
         for il in range(2):
-            idx = stdout[-1*il].find('Static')
-            if idx > 0 and ('flat' in stdout[-1*il] or 'bad' in stdout[-1*il]):
-                idx = stdout[-1*il].find('): ')
-                bads_str = stdout[-1*il][idx + 3]
+            row = stdout[-1*il]
+            idx = row.find('Static')
+            if idx > 0 and ('flat' in row or 'bad' in row):
+                idx = row.find('): ')
+                bads_str += [row[idx + 3]]
 
         self.logger.info('xscan detected the following bad channels:\n' +
                          bads_str)

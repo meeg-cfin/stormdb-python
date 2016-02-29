@@ -66,6 +66,8 @@ class Maxfilter():
                                xscan_bin=None, set_bad=True):
         """Experimental method from Elekta for detecting bad channels
 
+        WARNING! Use at own risk, not documented/fully tested!
+
         Parameters
         ----------
         in_fname : str
@@ -85,26 +87,26 @@ class Maxfilter():
             xscan_bin = '/neuro/bin/util/xscan'
 
         # Start building command
-        cmd = [xscan_bin + '-f {:s} -v'.format(in_fname)]
+        cmd = [xscan_bin, '-v', '-f', '{:s}'.format(in_fname)]
 
         proc = subp.Popen(cmd, shell=True, stdout=subp.PIPE)
         stdout = proc.communicate()[0]  # read stdout
         retcode = proc.wait()
 
         if retcode != 0:
-            if retcode >> 8 == 127:
+            if retcode == 127:
                 raise NameError('xscan binary ' + xscan_bin + ' not found')
             else:
                 errmsg = 'xscan exited with an error, output is:\n\n' + stdout
                 raise RuntimeError(errmsg)
 
+        # CHECKME!
         for il in range(2):
             idx = stdout[-1*il].find('Static')
             if idx > 0 and ('flat' in stdout[-1*il] or 'bad' in stdout[-1*il]):
                 idx = stdout[-1*il].find('): ')
                 bads_str = stdout[-1*il][idx + 3]
 
-        bads_str = stdout[-1]  # last row is what we want
         self.logger.info('xscan detected the following bad channels:\n' +
                          bads_str)
         if set_bad:

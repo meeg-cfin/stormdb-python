@@ -151,7 +151,6 @@ class Query():
         url = scode + '?' + self._login_code + \
             '&projectCode=' + self.proj_code
         output = self._send_request(url)
-        print(output)
 
         # Split at '\n'
         subj_list = output.split('\n')

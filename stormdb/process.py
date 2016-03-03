@@ -125,7 +125,7 @@ class Maxfilter():
                             hpisubt=None, hpicons=True, linefreq=None,
                             cal=None, ctc=None, mx_args='',
                             maxfilter_bin='/neuro/bin/util/maxfilter',
-                            logfile=None, force=False):
+                            logfile=None):
 
         """Build a NeuroMag MaxFilter command for later execution.
 
@@ -289,9 +289,6 @@ class Maxfilter():
 
         if ctc is not None:
             cmd += '-ctc {:s} '.format(ctc)
-
-        if force is not None:
-            cmd += '-f '
 
         cmd += mx_args
 

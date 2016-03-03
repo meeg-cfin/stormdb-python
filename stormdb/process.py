@@ -335,6 +335,7 @@ class Maxfilter():
                 if st != 0:
                     raise RuntimeError('qsub returned non-zero '
                                        'exit status {:d}'.format(st))
+                self.cmd = []  # clear list for next round
             else:
                 print('Fake run, nothing executed. The command built is:')
                 print(submit_cmd)

@@ -331,13 +331,13 @@ class Maxfilter():
         if os.system(submit_script + ' 2>&1 > /dev/null') >> 8 == 127:
             raise NameError('submit script ' + submit_script + ' not found')
 
-        for cmd in self.info['cmd']:
-            self.logger.info('Submitting command:\n{:s}'.format(cmd))
-
-            submit_cmd = ' '.join((submit_script,
-                                   '{:d}'.format(n_jobs),
-                                   '\"' + cmd + '\"'))  # quotes for safety
+        for ic, cmd in enumerate(self.info['cmd']):
             if not fake:
+                self.logger.info('Submitting command:\n{:s}'.format(cmd))
+
+                submit_cmd = ' '.join((submit_script,
+                                       '{:d}'.format(n_jobs),
+                                       '\"' + cmd + '\"'))  # quotes for safety
                 st = os.system(submit_cmd)
                 if st != 0:
                     raise RuntimeError('qsub returned non-zero '
@@ -345,11 +345,9 @@ class Maxfilter():
                 self.info['cmd'] = []  # clear list for next round
                 self.info['io_mapping'] = []  # clear list for next round
             else:
-                self.logger.info('Fake run, nothing executed. This is what '
-                                 'will happen when no longer faking it:')
-                for ii, iomap in self.info['io_mapping']:
-                    print('{:d}: {:s}'.format(ii + 1, iomap['input']))
-                    print('\t-->{:s}'.format(iomap['output']))
+                print('{:d}: {:s}'.format(ic + 1,
+                                          self.info['io_mapping'][ic]['input']))
+                print('\t-->{:s}'.format(self.info['io_mapping'][ic]['output']))
 
 
 def _check_n_jobs(n_jobs):

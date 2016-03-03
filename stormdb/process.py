@@ -120,9 +120,9 @@ class Maxfilter():
     def build_maxfilter_cmd(self, in_fname, out_fname, origin='0 0 40',
                             frame='head', bad=None, autobad='off', skip=None,
                             force=False, st=False, st_buflen=16.0,
-                            st_corr=0.96, mv_trans=None, movecomp=False,
-                            mv_headpos=False, mv_hp=None, mv_hpistep=None,
-                            mv_hpisubt=None, hpicons=True, linefreq=None,
+                            st_corr=0.96, trans=None, movecomp=False,
+                            headpos=False, hp=None, hpistep=None,
+                            hpisubt=None, hpicons=True, linefreq=None,
                             cal=None, ctc=None, mx_args='',
                             maxfilter_bin='/neuro/bin/util/maxfilter',
                             logfile=None):
@@ -168,20 +168,20 @@ class Maxfilter():
             tSSS subspace correlation limit (disabled if st is False)
         movecomp : bool (or 'inter')
             Estimates and compensates head movements in continuous raw data.
-        mv_trans : str(filename or 'default') (or None)
+        trans : str(filename or 'default') (or None)
             Transforms the data into the coil definitions of in_fname,
             or into the default frame. If None, and movecomp is True,
             data will be movement compensated to initial head position.
-        mv_headpos : bool
+        headpos : bool
             Estimates and stores head position parameters, but does not
             compensate movements (disabled if movecomp is False)
-        mv_hp : string (or None)
+        hp : string (or None)
             Stores head position data in an ascii file
             (disabled if movecomp is False)
-        mv_hpistep : float (or None)
+        hpistep : float (or None)
             Sets head position update interval in ms (disabled if movecomp
             is False)
-        mv_hpisubt : str('amp', 'base', 'off') (or None)
+        hpisubt : str('amp', 'base', 'off') (or None)
             Subtracts hpi signals: sine amplitudes, amp + baseline, or switch
             off (disabled if movecomp is False)
         hpicons : bool
@@ -256,25 +256,25 @@ class Maxfilter():
 
         if st:
             cmd += '-st '
-            cmd += ' {:d} '.format(st_buflen)
+            cmd += ' {:.0f} '.format(st_buflen)
             cmd += '-corr {:.4f} '.format(st_corr)
 
-        if mv_trans is not None:
-            cmd += '-trans {:s} '.format(mv_trans)
+        if trans is not None:
+            cmd += '-trans {:s} '.format(trans)
 
         if movecomp:
             cmd += '-movecomp '
             if movecomp == 'inter':
                 cmd += ' inter '
 
-            if mv_headpos:
+            if headpos:
                 cmd += '-headpos '
 
-            if mv_hp is not None:
-                cmd += '-hp {:s} '.format(mv_hp)
+            if hp is not None:
+                cmd += '-hp {:s} '.format(hp)
 
-            if mv_hpisubt is not None:
-                cmd += 'hpisubt {:s} '.format(mv_hpisubt)
+            if hpisubt is not None:
+                cmd += 'hpisubt {:s} '.format(hpisubt)
 
             if hpicons:
                 cmd += '-hpicons '

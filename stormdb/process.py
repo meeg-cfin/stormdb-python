@@ -48,9 +48,8 @@ class Maxfilter():
         if not os.path.exists('/projects/' + proj_code):
             raise DBError('No such project!')
 
-        self.proj_code = proj_code
-        self.bad = bad
-        self.cmd = []
+        self.info = dict(proj_code=proj_code, bad=bad, cmd=[],
+                         io_mapping=[])
         # Consider placing other vars here
 
         self.logger = logging.getLogger('__name__')
@@ -114,7 +113,7 @@ class Maxfilter():
         if set_bad:
             new_bads = bads_str.split()
             uniq_bads = [b for b in new_bads if b not in self.bad]
-            self.bad = uniq_bads
+            self.info['bad'] = uniq_bads
             self.logger.info('Maxfilter object bad channel list updated')
 
     def build_maxfilter_cmd(self, in_fname, out_fname, origin='0 0 40',
@@ -236,9 +235,9 @@ class Maxfilter():
             # format the channels
             if isinstance(bad, str):
                 bad = bad.split()
-            bad += self.bad  # combine the two
+            bad += self.info['bad']  # combine the two
         else:
-            bad = self.bad
+            bad = self.info['bad']
 
         if len(bad) > 0:
             # now assume we have a list of str with channel names
@@ -299,7 +298,8 @@ class Maxfilter():
         if logfile:
             cmd += ' | tee ' + logfile
 
-        self.cmd += [cmd]
+        self.info['cmd'] += [cmd]
+        self.info['io_mapping'] += [dict(input=in_fname, output=out_fname)]
 
     def submit_to_isis(self, n_jobs=1, fake=False, submit_script=None):
         """ Submit the command built before for processing on the cluster.
@@ -320,7 +320,7 @@ class Maxfilter():
             /usr/local/common/meeg-cfin/configurations/bin/submit_to_isis
 
         """
-        if len(self.cmd) < 1:
+        if len(self.info['cmd']) < 1:
             raise NameError('cmd to submit is not defined yet')
 
         _check_n_jobs(n_jobs)
@@ -331,7 +331,7 @@ class Maxfilter():
         if os.system(submit_script + ' 2>&1 > /dev/null') >> 8 == 127:
             raise NameError('submit script ' + submit_script + ' not found')
 
-        for cmd in self.cmd:
+        for cmd in self.info['cmd']:
             self.logger.info('Submitting command:\n{:s}'.format(cmd))
 
             submit_cmd = ' '.join((submit_script,
@@ -342,11 +342,14 @@ class Maxfilter():
                 if st != 0:
                     raise RuntimeError('qsub returned non-zero '
                                        'exit status {:d}'.format(st))
-                self.cmd = []  # clear list for next round
+                self.info['cmd'] = []  # clear list for next round
+                self.info['io_mapping'] = []  # clear list for next round
             else:
-                print('Fake run, nothing executed. The command built is:')
-                print(submit_cmd)
-                self.logger.info('Nothing executed.')
+                self.logger.info('Fake run, nothing executed. This is what '
+                                 'will happen when no longer faking it:')
+                for ii, iomap in self.info['io_mapping']:
+                    print('{:d}: {:s}'.format(ii + 1, iomap['input']))
+                    print('\t-->{:s}'.format(iomap['output']))
 
 
 def _check_n_jobs(n_jobs):

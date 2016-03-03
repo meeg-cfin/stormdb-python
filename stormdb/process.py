@@ -176,19 +176,16 @@ class Maxfilter():
             data will be movement compensated to initial head position.
         headpos : bool
             Estimates and stores head position parameters, but does not
-            compensate movements (disabled if movecomp is False)
+            compensate movements
         hp : string (or None)
             Stores head position data in an ascii file
-            (disabled if movecomp is False)
         hpistep : float (or None)
-            Sets head position update interval in ms (disabled if movecomp
-            is False)
+            Sets head position update interval in ms
         hpisubt : str('amp', 'base', 'off') (or None)
             Subtracts hpi signals: sine amplitudes, amp + baseline, or switch
-            off (disabled if movecomp is False)
+            off
         hpicons : bool
             Check initial consistency isotrak vs hpifit
-            (disabled if movecomp is False)
         linefreq : int (50, 60) (or None)
             Sets the basic line interference frequency (50 or 60 Hz)
             (None: do not use line filter)
@@ -238,7 +235,12 @@ class Maxfilter():
         if bad is not None:
             # format the channels
             if isinstance(bad, str):
-                bad = bad.split() + self.bad  # combine the two
+                bad = bad.split()
+            bad += self.bad  # combine the two
+        else:
+            bad = self.bad
+
+        if len(bad) > 0:
             # now assume we have a list of str with channel names
             bad_logic = [ch[3:] if ch.startswith('MEG') else ch for ch in bad]
             bad_str = ' '.join(bad_logic)
@@ -269,17 +271,19 @@ class Maxfilter():
             if movecomp == 'inter':
                 cmd += ' inter '
 
-            if headpos:
-                cmd += '-headpos '
+        if headpos:
+            if movecomp:
+                raise RuntimeError('movecomp and headpos mutually exclusive')
+            cmd += '-headpos '
 
-            if hp is not None:
-                cmd += '-hp {:s} '.format(hp)
+        if hp is not None:
+            cmd += '-hp {:s} '.format(hp)
 
-            if hpisubt is not None:
-                cmd += 'hpisubt {:s} '.format(hpisubt)
+        if hpisubt is not None:
+            cmd += 'hpisubt {:s} '.format(hpisubt)
 
-            if hpicons:
-                cmd += '-hpicons '
+        if hpicons:
+            cmd += '-hpicons '
 
         if linefreq is not None:
             cmd += '-linefreq {:d} '.format(linefreq)

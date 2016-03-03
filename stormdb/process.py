@@ -125,7 +125,7 @@ class Maxfilter():
                             hpisubt=None, hpicons=True, linefreq=None,
                             cal=None, ctc=None, mx_args='',
                             maxfilter_bin='/neuro/bin/util/maxfilter',
-                            logfile=None):
+                            logfile=None, force=False):
 
         """Build a NeuroMag MaxFilter command for later execution.
 
@@ -145,6 +145,8 @@ class Maxfilter():
             Full path to the maxfilter-executable
         logfile : str
             Full path to the output logfile
+        force : bool
+            Overwrite existing output (default: False)
         origin : array-like or str
             Head origin in mm. If None it will be estimated from headshape
             points.
@@ -236,7 +238,7 @@ class Maxfilter():
         if bad is not None:
             # format the channels
             if isinstance(bad, str):
-                bad = bad.split()
+                bad = bad.split() + self.bad  # combine the two
             # now assume we have a list of str with channel names
             bad_logic = [ch[3:] if ch.startswith('MEG') else ch for ch in bad]
             bad_str = ' '.join(bad_logic)
@@ -287,6 +289,9 @@ class Maxfilter():
 
         if ctc is not None:
             cmd += '-ctc {:s} '.format(ctc)
+
+        if force is not None:
+            cmd += '-f '
 
         cmd += mx_args
 

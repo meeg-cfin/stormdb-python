@@ -14,11 +14,12 @@ Credits:
 import os
 import sys
 import logging
+import warnings
 import numpy as np
-from scipy import optimize, linalg
+import subprocess as subp
 
 from mne.io import Raw
-from mne.io.constants import FIFF
+from mne.bem import fit_sphere_to_headshape
 
 from .access import DBError
 
@@ -30,27 +31,29 @@ class Maxfilter():
     ----------
     proj_code : str
         The name of the project.
+    bad : list
+        List of a priori bad channels (default: empty list)
     verbose : bool
-        If True, print out a bunch of information as we go. Defaults to False.
+        If True (default), print out a bunch of information as we go.
 
     Attributes
     ----------
     proj_code : str
         Name of project
-    cmd : str
-        If defined, represents a maxfilter shell call as a string.
+    cmd : list of str
+        If defined, represents a sequence of maxfilter shell calls.
     """
 
-    def __init__(self, proj_code, verbose=False):
+    def __init__(self, proj_code, bad=[], verbose=True):
         if not os.path.exists('/projects/' + proj_code):
             raise DBError('No such project!')
 
-        self.proj_code = proj_code
-        self.cmd = ''  # No command defined at init
+        self.info = dict(proj_code=proj_code, bad=bad, cmd=[],
+                         io_mapping=[])
         # Consider placing other vars here
 
         self.logger = logging.getLogger('__name__')
-        self.logger.propagate=False
+        self.logger.propagate = False
         stdout_stream = logging.StreamHandler(sys.stdout)
         self.logger.addHandler(stdout_stream)
         if verbose:
@@ -58,101 +61,74 @@ class Maxfilter():
         else:
             self.logger.setLevel(logging.ERROR)
 
+    def detect_bad_chans_xscan(self, in_fname, use_tsss=False, n_jobs=1,
+                               xscan_bin=None, set_bad=True):
+        """Experimental method from Elekta for detecting bad channels
 
-    @staticmethod
-    def fit_sphere_to_headshape(info, ylim=None, zlim=None,
-                                verbose=None):
-        """ Fit a sphere to the headshape points to determine head center for
-            maxfilter. Slightly modified from mne-python.
+        WARNING! Use at own risk, not documented/fully tested!
 
         Parameters
         ----------
-        info : dict
-            Measurement info from raw file.
-
-        ylim : tuple (or list) of length 2 (ymin, ymax) in meters
-            y-coordinate limits (min and max) on head shape points
-            Usefull, e.g., for omitting points on face; ylim = (-np.inf, 0.070)
-
-        zlim : tuple (or list) of length 2 (zmin, zmax) in meters
-            z-coordinate limits (min and max) on head shape points
-
-        verbose : bool, str, int, or None
-            If not None, override default verbose level.
-
-        Returns
-        -------
-        radius : float
-            Sphere radius in mm.
-        origin_head: ndarray
-            Head center in head coordinates (mm).
-        origin_device: ndarray
-            Head center in device coordinates (mm).
-
+        in_fname : str
+            Input file name
+        use_tsss : bool
+            If True, uses tSSS-based bad channel estimation (slow!). Default
+            is False: use tSSS for particularly bad artefacts like dentals.
+        xscan_bin : str
+            Full path to xscan-binary (if None, default in /neuro/bin is used)
+        set_bad : bool
+            Set the channels found by xscan as bad in the Maxfilter object
+            (default: True). NB: bad-list is amended, not replaced!
         """
-        # get head digization points, excluding some frontal points (nose etc.)
-        hsp = [p['r'] for p in info['dig']
-               if (p['kind'] == FIFF.FIFFV_POINT_EXTRA and not
-                   (p['r'][2] < 0 and p['r'][1] > 0))]
+        _check_n_jobs(n_jobs)
 
-        if ylim is not None:
-            # self.logger.info("Cutting out points for which "
-            #                  "{min:.1f} < y < {max:.1f}".format( \
-            #                  min=1e3*ylim[0], max=1e3*ylim[1]))
-            hsp = [p for p in hsp if (p[1] > ylim[0] and p[1] < ylim[1])]
-        if zlim is not None:
-            # self.logger.info("Cutting out points for which "
-            #                  "{min:.1f} < y < {max:.1f}".format( \
-            #                  min=1e3*zlim[0], max=1e3*zlim[1]))
-            hsp = [p for p in hsp if (p[2] > zlim[0] and p[2] < zlim[1])]
+        if xscan_bin is None:
+            xscan_bin = '/neuro/bin/util/xscan'
 
-        if len(hsp) == 0:
-            raise ValueError('No head digitization points found')
+        # Start building command
+        cmd = [xscan_bin, '-v', '-f', '{:s}'.format(in_fname)]
 
-        hsp = 1e3 * np.array(hsp)
+        proc = subp.Popen(cmd, shell=True, stdout=subp.PIPE)
+        stdout = proc.communicate()[0]  # read stdout
+        retcode = proc.wait()
 
-        # initial guess for center and radius
-        xradius = (np.max(hsp[:, 0]) - np.min(hsp[:, 0])) / 2
-        yradius = (np.max(hsp[:, 1]) - np.min(hsp[:, 1])) / 2
+        if retcode != 0:
+            if retcode == 127:
+                raise NameError('xscan binary ' + xscan_bin + ' not found')
+            else:
+                errmsg = 'xscan exited with an error, output is:\n\n' + stdout
+                raise RuntimeError(errmsg)
 
-        radius_init = (xradius + yradius) / 2
-        center_init = np.array([0.0, 0.0, np.max(hsp[:, 2]) - radius_init])
+        # CHECKME!
+        bads_str = []
+        for il in range(2):
+            row = stdout[-1*il]
+            idx = row.find('Static')
+            if idx > 0 and ('flat' in row or 'bad' in row):
+                idx = row.find('): ')
+                bads_str += [row[idx + 3]]
 
-        # optimization
-        x0 = np.r_[center_init, radius_init]
-        cost_fun = lambda x, hsp:\
-            np.sum((np.sqrt(np.sum((hsp - x[:3]) ** 2, axis=1)) - x[3]) ** 2)
-
-        disp = True if verbose else False
-        x_opt = optimize.fmin_powell(cost_fun, x0, args=(hsp,), disp=disp)
-
-        origin_head = x_opt[:3]
-        radius = x_opt[3]
-
-        # compute origin in device coordinates
-        trans = info['dev_head_t']
-        if (trans['from'] != FIFF.FIFFV_COORD_DEVICE or
-            trans['to'] != FIFF.FIFFV_COORD_HEAD):
-                raise RuntimeError('device to head transform not found')
-
-        head_to_dev = linalg.inv(trans['trans'])
-        origin_device = 1e3 * np.dot(head_to_dev,
-                                     np.r_[1e-3 * origin_head, 1.0])[:3]
-
-        return radius, origin_head, origin_device
-
+        self.logger.info('xscan detected the following bad channels:\n' +
+                         bads_str)
+        if set_bad:
+            new_bads = bads_str.split()
+            uniq_bads = [b for b in new_bads if b not in self.bad]
+            self.info['bad'] = uniq_bads
+            self.logger.info('Maxfilter object bad channel list updated')
 
     def build_maxfilter_cmd(self, in_fname, out_fname, origin='0 0 40',
                             frame='head', bad=None, autobad='off', skip=None,
                             force=False, st=False, st_buflen=16.0,
-                            st_corr=0.96, mv_trans=None, movecomp=False,
-                            mv_headpos=False, mv_hp=None, mv_hpistep=None,
-                            mv_hpisubt=None, hpicons=True, linefreq=None,
+                            st_corr=0.96, trans=None, movecomp=False,
+                            headpos=False, hp=None, hpistep=None,
+                            hpisubt=None, hpicons=True, linefreq=None,
                             cal=None, ctc=None, mx_args='',
                             maxfilter_bin='/neuro/bin/util/maxfilter',
-                            logfile=None, n_threads=None):
+                            logfile=None):
 
-        """ Build a NeuroMag MaxFilter command for later execution.
+        """Build a NeuroMag MaxFilter command for later execution.
+
+        See the Maxfilter manual for details on the different options!
 
         Things to implement
         * check that cal-file matches date in infile!
@@ -160,100 +136,79 @@ class Maxfilter():
 
         Parameters
         ----------
-        in_fname : string
+        in_fname : str
             Input file name
-
-        out_fname : string
+        out_fname : str
             Output file name
-
-        maxfilter_bin : string
+        maxfilter_bin : str
             Full path to the maxfilter-executable
-
-        logfile : string
+        logfile : str
             Full path to the output logfile
-
-        origin : array-like or string
-            Head origin in mm. If None it will be estimated from headshape points.
-
-        frame : string ('device' or 'head')
+        force : bool
+            Overwrite existing output (default: False)
+        origin : array-like or str
+            Head origin in mm. If None it will be estimated from headshape
+            points.
+        frame : str ('device' or 'head')
             Coordinate frame for head center
-
-        bad : string, list (or None)
+        bad : str, list (or None)
             List of static bad channels. Can be a list with channel names, or a
-            string with channels (names or logical channel numbers)
-
+            string with channels (with or without the preceding 'MEG')
         autobad : string ('on', 'off', 'n')
             Sets automated bad channel detection on or off
-
         skip : string or a list of float-tuples (or None)
             Skips raw data sequences, time intervals pairs in sec,
             e.g.: 0 30 120 150
-
         force : bool
             Ignore program warnings
-
         st : bool
-            Apply the time-domain MaxST extension
-
+            Apply the time-domain SSS extension (tSSS)
         st_buflen : float
-            MaxSt buffer length in sec (disabled if st is False)
-
+            tSSS buffer length in sec (disabled if st is False)
         st_corr : float
-            MaxSt subspace correlation limit (disabled if st is False)
-
-        mv_trans : string (filename or 'default') (or None)
-            Transforms the data into the coil definitions of in_fname, or into the
-            default frame (None: don't use option)
-
+            tSSS subspace correlation limit (disabled if st is False)
         movecomp : bool (or 'inter')
-            Estimates and compensates head movements in continuous raw data
-
-        mv_headpos : bool
-            Estimates and stores head position parameters, but does not compensate
-            movements (disabled if mv_comp is False)
-
-        mv_hp : string (or None)
+            Estimates and compensates head movements in continuous raw data.
+        trans : str(filename or 'default') (or None)
+            Transforms the data into the coil definitions of in_fname,
+            or into the default frame. If None, and movecomp is True,
+            data will be movement compensated to initial head position.
+        headpos : bool
+            Estimates and stores head position parameters, but does not
+            compensate movements
+        hp : string (or None)
             Stores head position data in an ascii file
-            (disabled if mv_comp is False)
-
-        mv_hpistep : float (or None)
-            Sets head position update interval in ms (disabled if mv_comp is False)
-
-        mv_hpisubt : string ('amp', 'base', 'off') (or None)
-            Subtracts hpi signals: sine amplitudes, amp + baseline, or switch off
-            (disabled if mv_comp is False)
-
+        hpistep : float (or None)
+            Sets head position update interval in ms
+        hpisubt : str('amp', 'base', 'off') (or None)
+            Subtracts hpi signals: sine amplitudes, amp + baseline, or switch
+            off
         hpicons : bool
             Check initial consistency isotrak vs hpifit
-            (disabled if mv_comp is False)
-
         linefreq : int (50, 60) (or None)
             Sets the basic line interference frequency (50 or 60 Hz)
             (None: do not use line filter)
-
-        cal : string
+        cal : str
             Path to calibration file
-
-        ctc : string
+        ctc : str
             Path to Cross-talk compensation file
-
-        mx_args : string
+        mx_args : str
             Additional command line arguments to pass to MaxFilter
-
         """
-
-
         # determine the head origin if necessary
         if origin is None:
             self.logger.info('Estimating head origin from headshape points..')
-            raw = Raw(in_fname)
-            r, o_head, o_dev = self.fit_sphere_to_headshape(raw.info, ylim=0.070) # Note: this is not standard MNE...
+            raw = Raw(in_fname, preload=False)
+            with warnings.filterwarnings('error', category=RuntimeWarning):
+                r, o_head, o_dev = fit_sphere_to_headshape(raw.info,
+                                                           dig_kind='auto',
+                                                           units='m')
             raw.close()
 
             self.logger.info('Fitted sphere: r = {.1f} mm'.format(r))
-            self.logger.info('Origin head coordinates: {.1f} {.1f} {.1f} mm'.\
+            self.logger.info('Origin head coordinates: {.1f} {.1f} {.1f} mm'.
                              format(o_head[0], o_head[1], o_head[2]))
-            self.logger.info('Origin head coordinates: {.1f} {.1f} {.1f} mm'.\
+            self.logger.info('Origin device coordinates: {.1f} {.1f} {.1f} mm'.
                              format(o_dev[0], o_dev[1], o_dev[2]))
 
             self.logger.info('[done]')
@@ -264,24 +219,28 @@ class Maxfilter():
             else:
                 RuntimeError('invalid frame for origin')
 
-        # format command
-        if origin is False:
-            cmd = (maxfilter_bin + ' -f {:s} -o {:s} -v '.format(
-                  in_fname, out_fname))
-        else:
-            if not isinstance(origin, str):
-                origin = '{:.1f} {:.1f} {:.1f}'.format(origin[0],
-                                                       origin[1], origin[2])
+        # Start building command
+        cmd = (maxfilter_bin + ' -f {:s} -o {:s} -v '.format(in_fname,
+                                                             out_fname))
 
-            cmd = (maxfilter_bin + \
-                  ' -f {:s} -o {:s} -frame {:s} -origin {:s} -v '.format(
-                  in_fname, out_fname, frame, origin))
+        if isinstance(origin, (np.ndarray, list, tuple)):
+            origin = '{:.1f} {:.1f} {:.1f}'.format(origin[0],
+                                                   origin[1], origin[2])
+        elif not isinstance(origin, str):
+            raise(ValueError('origin must be list-like or string'))
+
+        cmd += ' -frame {:s} -origin {:s} -v '.format(frame, origin)
 
         if bad is not None:
             # format the channels
-            if not isinstance(bad, list):
+            if isinstance(bad, str):
                 bad = bad.split()
-            bad = map(str, bad)
+            bad += self.info['bad']  # combine the two
+        else:
+            bad = self.info['bad']
+
+        if len(bad) > 0:
+            # now assume we have a list of str with channel names
             bad_logic = [ch[3:] if ch.startswith('MEG') else ch for ch in bad]
             bad_str = ' '.join(bad_logic)
 
@@ -291,7 +250,8 @@ class Maxfilter():
 
         if skip is not None:
             if isinstance(skip, list):
-                skip = ' '.join(['{:.3f} {:.3f}'.format(s[0], s[1]) for s in skip])
+                skip = ' '.join(['{:.3f} {:.3f}'.format(s[0], s[1])
+                                for s in skip])
             cmd += '-skip {:s} '.format(skip)
 
         if force:
@@ -299,28 +259,30 @@ class Maxfilter():
 
         if st:
             cmd += '-st '
-            cmd += ' {:d} '.format(st_buflen)
+            cmd += ' {:.0f} '.format(st_buflen)
             cmd += '-corr {:.4f} '.format(st_corr)
 
-        if mv_trans is not None:
-            cmd += '-trans {:s} '.format(mv_trans)
+        if trans is not None:
+            cmd += '-trans {:s} '.format(trans)
 
         if movecomp:
             cmd += '-movecomp '
             if movecomp == 'inter':
                 cmd += ' inter '
 
-            if mv_headpos:
-                cmd += '-headpos '
+        if headpos:
+            if movecomp:
+                raise RuntimeError('movecomp and headpos mutually exclusive')
+            cmd += '-headpos '
 
-            if mv_hp is not None:
-                cmd += '-hp {:s} '.format(mv_hp)
+        if hp is not None:
+            cmd += '-hp {:s} '.format(hp)
 
-            if mv_hpisubt is not None:
-                cmd += 'hpisubt {:s} '.format(mv_hpisubt)
+        if hpisubt is not None:
+            cmd += 'hpisubt {:s} '.format(hpisubt)
 
-            if hpicons:
-                cmd += '-hpicons '
+        if hpicons:
+            cmd += '-hpicons '
 
         if linefreq is not None:
             cmd += '-linefreq {:d} '.format(linefreq)
@@ -336,7 +298,8 @@ class Maxfilter():
         if logfile:
             cmd += ' | tee ' + logfile
 
-        self.cmd = cmd
+        self.info['cmd'] += [cmd]
+        self.info['io_mapping'] += [dict(input=in_fname, output=out_fname)]
 
     def submit_to_isis(self, n_jobs=1, fake=False, submit_script=None):
         """ Submit the command built before for processing on the cluster.
@@ -346,7 +309,7 @@ class Maxfilter():
 
         Parameters
         ----------
-        n_jobs : number or None
+        n_jobs : int
             Number of parallel threads to allow (Intel MKL). Max 12!
         fake : bool
             If true, run a fake run, just print the command that will be
@@ -357,31 +320,39 @@ class Maxfilter():
             /usr/local/common/meeg-cfin/configurations/bin/submit_to_isis
 
         """
-        if not self.cmd:
+        if len(self.info['cmd']) < 1:
             raise NameError('cmd to submit is not defined yet')
 
-        if n_jobs > 12:
-            raise ValueError('isis only has 12 cores!')
-        elif n_jobs < 1 or type(n_jobs) is not int:
-            raise ValueError('number of jobs must be a positive integer!')
-
+        _check_n_jobs(n_jobs)
         if submit_script is None:
-            submit_script = '\
-            /usr/local/common/meeg-cfin/configurations/bin/submit_to_isis'
+            submit_script = \
+                '/usr/local/common/meeg-cfin/configurations/bin/submit_to_isis'
 
         if os.system(submit_script + ' 2>&1 > /dev/null') >> 8 == 127:
             raise NameError('submit script ' + submit_script + ' not found')
 
-        self.logger.info('Command to submit:\n{:s}'.format(self.cmd))
+        for ic, cmd in enumerate(self.info['cmd']):
+            if not fake:
+                self.logger.info('Submitting command:\n{:s}'.format(cmd))
 
-        submit_cmd = ' '.join((submit_script,
-                               '{:d}'.format(n_jobs), self.cmd))
-        if not fake:
-            st = os.system(submit_cmd)
-            if st != 0:
-                raise RuntimeError('qsub returned non-zero '
-                                   'exit status {:d}'.format(st))
-        else:
-            print('Fake run, nothing executed. The command built is:')
-            print(submit_cmd)
-            self.logger.info('Nothing executed.')
+                submit_cmd = ' '.join((submit_script,
+                                       '{:d}'.format(n_jobs),
+                                       '\"' + cmd + '\"'))  # quotes for safety
+                st = os.system(submit_cmd)
+                if st != 0:
+                    raise RuntimeError('qsub returned non-zero '
+                                       'exit status {:d}'.format(st))
+                self.info['cmd'] = []  # clear list for next round
+                self.info['io_mapping'] = []  # clear list for next round
+            else:
+                print('{:d}: {:s}'.format(ic + 1,
+                                          self.info['io_mapping'][ic]['input']))
+                print('\t-->{:s}'.format(self.info['io_mapping'][ic]['output']))
+
+
+def _check_n_jobs(n_jobs):
+    """Check that n_jobs is sane"""
+    if n_jobs > 12:
+        raise ValueError('isis only has 12 cores!')
+    elif n_jobs < 1 or type(n_jobs) is not int:
+        raise ValueError('number of jobs must be a positive integer!')

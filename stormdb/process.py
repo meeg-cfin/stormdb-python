@@ -326,10 +326,11 @@ class Maxfilter():
             raise NameError('submit script ' + submit_script + ' not found')
 
         for cmd in self.cmd:
-            self.logger.info('Command to submit:\n{:s}'.format(cmd))
+            self.logger.info('Submitting command:\n{:s}'.format(cmd))
 
             submit_cmd = ' '.join((submit_script,
-                                   '{:d}'.format(n_jobs), cmd))
+                                   '{:d}'.format(n_jobs),
+                                   '\"' + cmd + '\"'))  # quotes for safety
             if not fake:
                 st = os.system(submit_cmd)
                 if st != 0:

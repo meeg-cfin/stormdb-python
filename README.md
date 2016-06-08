@@ -21,6 +21,8 @@ for sub in subjects:
 Submodule: process
 -----------------
 
+NEEDS UPDATING
+
 Currently houses the `Maxfilter`-object, which can be used to prepare maxfiltering runs and finally to submit them to the cluster for processing.
 
 ```

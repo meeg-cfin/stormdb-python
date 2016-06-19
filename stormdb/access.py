@@ -14,6 +14,7 @@ import os
 import requests
 from requests import ConnectionError
 import urllib
+import re
 
 
 class DBError(Exception):
@@ -137,7 +138,7 @@ class Query():
 
     def _check_proj_code(self, verbose=False):
         url = '?' + self._login_code + '&projectCode=' + self.proj_code
-        _ = self._send_request(url)
+        self._send_request(url)
 
     def _send_request(self, url, verbose=False):
         full_url = self._server + url
@@ -244,8 +245,10 @@ class Query():
         return(stud_list)
 
     def get_series(self, subj_id, study, modality):
-        """Get list of series from database for specified subject, study and
-        modality.
+        """Get dict of series from database.
+
+        Specify subject, study and modality. The database series numbers are
+        keys, names are values.
 
         Parameters
         ----------
@@ -411,6 +414,10 @@ class Query():
                 key_val_pair = kvp.split(':')
                 if 'files' in key_val_pair[0]:
                     key_val_pair[1] = key_val_pair[1].split('|')
+                elif 'path' in key_val_pair[0]:
+                    m = re.search('\d{3}\.(.+?)/files',
+                                  key_val_pair[1])
+                    info.append(['seriename', m.group(1)])
                 info.append(key_val_pair)
             info_dict = {key: value for (key, value) in info}
             info_dict_list.append(info_dict)

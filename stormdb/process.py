@@ -47,10 +47,11 @@ class MNEPython(ClusterBatch):
 
         script = ("from mne.io import read_raw_fif;"
                   "raw = read_raw_fif('{in_fname:s}', preload=True);"
-                  "raw.filter({l_freq:.1f}, {h_freq:.1f}, {kwargs:});"
+                  "raw.filter({l_freq:.1f}, {h_freq:.1f}{kwargs:});"
                   "raw.save('{out_fname:s}')")
         filtargs = ', '.join("{!s}={!r}".format(key, val) for
                              (key, val) in kwargs.items())
+        filtargs = ', ' + filtargs if len(kwargs) > 0 else filtargs
         cmd = "python -c \""
         cmd += script.format(in_fname=in_fname, out_fname=out_fname,
                              l_freq=l_freq, h_freq=h_freq, kwargs=filtargs)

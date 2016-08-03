@@ -15,6 +15,7 @@ import requests
 from requests import ConnectionError
 import urllib
 import re
+from six import string_types
 
 
 class DBError(Exception):
@@ -28,12 +29,12 @@ class DBError(Exception):
         return repr(self.value)
 
 
-class Query():
+class Query(object):
     """ Query object for communicating with the STORM database
 
     Parameters
     ----------
-    proj_code : str
+    proj_name : str
         The name of the project.
     stormdblogin : str
         The filename to store database login credentials as a hash.
@@ -45,14 +46,23 @@ class Query():
 
     Attributes
     ----------
-    proj_code : str
+    proj_name : str
         Name of project
     """
 
-    def __init__(self, proj_code, stormdblogin='~/.stormdblogin',
-                 username=None, verbose=None):
-        self.proj_code = proj_code
-        self._username = username
+    def __init__(self, proj_name=None, stormdblogin='~/.stormdblogin',
+                 verbose=None):
+        if proj_name is None:
+            try:
+                proj_name = os.environ['MINDLABPROJ']
+                if proj_name == 'NA' or proj_name == '':
+                    raise KeyError('Force a KeyError')
+            except KeyError:
+                msg = ('You must specify a project name either when creating '
+                       'a Query-object, or by setting the MINDLABPROJ '
+                       'environment variable (e.g. in your .bashrc file).')
+                raise DBError(msg)
+        self.proj_name = proj_name  # will be checked later!
         self._stormdblogin = stormdblogin
 
         default_server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
@@ -84,10 +94,10 @@ class Query():
             raise DBError('No access to database server (tried: '
                           '{0} and\n{1})'.format(default_server, alt_server))
 
-        self._get_login_code(username=username, verbose=verbose)
-        self._check_proj_code()
+        self._get_login_code(verbose=verbose)
+        self._check_proj_name()
 
-    def _get_login_code(self, username=None, verbose=False):
+    def _get_login_code(self, verbose=False):
         try:
             with open(os.path.expanduser(self._stormdblogin), 'r') as fid:
                 if verbose:
@@ -98,10 +108,8 @@ class Query():
             print('Login credentials not found, please enter them here')
             print('WARNING: This might not work if you\'re in an IDE '
                   '(e.g. spyder)!')
-            if username:
-                usr = username
-            else:
-                usr = getuser()
+
+            usr = getuser()
 
             prompt = 'User \"{:s}\", please enter your password: '.format(usr)
             pwd = getpass(prompt)
@@ -129,15 +137,15 @@ class Query():
                 os.remove(os.path.expanduser(self._stormdblogin))
                 self._get_login_code()
             elif response.find('The project does not exist') != -1:
-                msg = 'The project ID/code you used does not exist ' + \
-                      'in the database, please check.'
+                msg = ('The project ID/code you used ({0}) does not exist '
+                       'in the database, please check.'.format(self.proj_name))
 
             raise DBError(msg)
 
         return(0)
 
-    def _check_proj_code(self, verbose=False):
-        url = '?' + self._login_code + '&projectCode=' + self.proj_code
+    def _check_proj_name(self, verbose=False):
+        url = '?' + self._login_code + '&projectCode=' + self.proj_name
         self._send_request(url)
 
     def _send_request(self, url, verbose=False):
@@ -183,7 +191,7 @@ class Query():
                             'excluded'""")
 
         url = scode + '?' + self._login_code + \
-            '&projectCode=' + self.proj_code
+            '&projectCode=' + self.proj_name
         output = self._send_request(url)
 
         # Split at '\n'
@@ -218,7 +226,7 @@ class Query():
         """
 
         url = 'studies?' + self._login_code + \
-            '&projectCode=' + self.proj_code + '&subjectNo=' + subj_id
+            '&projectCode=' + self.proj_name + '&subjectNo=' + subj_id
         output = self._send_request(url)
 
         # Split at '\n'
@@ -229,7 +237,7 @@ class Query():
         if modality:
             for ii, study in enumerate(stud_list):
                 url = 'modalities?' + self._login_code + \
-                    '&projectCode=' + self.proj_code + '&subjectNo=' + \
+                    '&projectCode=' + self.proj_name + '&subjectNo=' + \
                       subj_id + '&study=' + study
                 output = self._send_request(url).split('\n')
 
@@ -274,7 +282,7 @@ class Query():
         The choice of a dict as output can be reconsidered.
         """
         url = 'series?' + self._login_code + '&projectCode=' + \
-            self.proj_code + '&subjectNo=' + \
+            self.proj_name + '&subjectNo=' + \
             subj_id + '&study=' + study + '&modality=' + modality
         output = self._send_request(url)
 
@@ -318,7 +326,7 @@ class Query():
             series = str(series)
 
         url = 'files?' + self._login_code + '&projectCode=' + \
-              self.proj_code + '&subjectNo=' + subj_id + '&study=' + \
+              self.proj_name + '&subjectNo=' + subj_id + '&study=' + \
               study + '&modality=' + modality + '&serieNo=' + series
         output = self._send_request(url)
 
@@ -329,7 +337,7 @@ class Query():
 
         return(file_list)
 
-    def filter_series(self, description, subj_ids='', modalities='MEG',
+    def filter_series(self, description, subjects=[], modalities=[],
                       study_metas='', return_files=True):
         """Select series based on their description (name)
 
@@ -342,14 +350,14 @@ class Query():
         description : str
             A string containing the name of the series to extract. The
             asterisk ('*') may be used as a wildcard.
-        subj_ids : str
-            A pipe-separated ('|') string identifying one or more subjects in
-            the database. For example: '0001_ABC|0010_XYZ'. The empty string
-            ('', default) is equivalent to all non-excluded subjects.
-        modalities : str
-            A string defining the modalities of the study to get. Modalities
-            can be separated using a pipe (|), e.g., 'MEG|MR'. Default: 'MEG'
-             The empty string ('') is equivalent to all modalities.
+        subjects : str or list of str
+            A string or list or strings identifying one or more subjects in
+            the database. For example: ['0001_ABC', 0010_XYZ']. An empty string
+            or list ('', default) is equivalent to all non-excluded subjects.
+        modalities : str or list of str
+            A string or list or strings identifying one or more modalities of
+            the study to get. Default: 'MEG', the empty string/list is
+            equivalent to all modalities.
         study_metas : dict or None
             A dictionary with fields "name", "comparison" and "value", e.g.,
             dict(name='timepoint', comparison='=', value=2). By default all
@@ -367,6 +375,9 @@ class Query():
                 The database subject code in the form NNNN_XYZ
             path : str
                 path to files
+            seriename : str
+                name of the series (corresponding to the name of the original
+                data file in MEG/EEG)
             files : list of str
                 list of strings with file names
         """
@@ -377,6 +388,24 @@ class Query():
         meta_str = ''
         outp = ''
         removeProjects = ''
+
+        if isinstance(subjects, list):
+            try:
+                subjects = '|'.join(subjects)
+            except TypeError:
+                raise DBError('When using a list of subjects, each element '
+                              'must be a string.')
+        elif not isinstance(subjects, string_types):
+            raise DBError('subjects-parameter must be str or list of str')
+
+        if isinstance(modalities, list):
+            try:
+                modalities = '|'.join(modalities)
+            except TypeError:
+                raise DBError('When using a list of modalities, each element '
+                              'must be a string.')
+        elif not isinstance(modalities, string_types):
+            raise DBError('modalities-parameter must be str or list of str')
 
         if isinstance(study_metas, dict):
             # do some checking here...
@@ -395,7 +424,7 @@ class Query():
             outp += 'outputoptions[inclfiles]=1&'
 
         url = 'filteredseries?' + self._login_code + '&projectCode=' + \
-              self.proj_code + '&subjects=' + subj_ids + '&studies=' + \
+              self.proj_name + '&subjects=' + subjects + '&studies=' + \
               studies + '&modalities=' + modalities + \
               '&types=' + types + '&anyWithType=' + anywithtype + \
               '&description=' + description + '&excluded=' + excluded +\
@@ -424,10 +453,12 @@ class Query():
 
         return(info_dict_list)
 
+    # def generate_output_path(self, relative_path=None):
+    #     full_path = opj(self._scratch, relative_path)
 
 if __name__ == '__main__':
 
     project_code = 'MEG_service'
 
-    Q = Query(proj_code=project_code)
+    Q = Query(proj_name=project_code)
     print(Q)

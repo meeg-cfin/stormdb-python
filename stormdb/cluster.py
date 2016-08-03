@@ -203,7 +203,7 @@ class ClusterJob(object):
     def _write_qsub_job(self, sh_file='submit_job.sh'):
         """Write temp .sh"""
         with open(sh_file, 'w') as bash_file:
-            bash_file.writelines(self.qsub_script)
+            bash_file.writelines(self._qsub_script)
 
     @staticmethod
     def _delete_qsub_job(sh_file='submit_job.sh'):

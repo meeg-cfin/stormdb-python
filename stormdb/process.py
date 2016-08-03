@@ -270,6 +270,7 @@ class Maxfilter(ClusterBatch):
         if logfile:
             cmd += ' | tee ' + logfile
 
+        # NB isis.q hard-coded here, remember to change if cluster changes
         self.add_job(cmd, queue='isis.q', n_threads=n_threads)
         self.info['io_mapping'] += [dict(input=in_fname, output=out_fname)]
 
@@ -290,6 +291,7 @@ class Maxfilter(ClusterBatch):
                 else:
                     raise IOError('Output file {0} not '
                                   'writable!'.format(io['output']))
+        self.logger.info('All inputs readable & outputs writable.')
 
 
 def Xscan(Maxfilter):
@@ -299,6 +301,7 @@ def Xscan(Maxfilter):
         super(Xscan, self).__init__(proj_name)
 
         self.info = dict(bad=bad, io_mapping=[])
+        print('xscan not implemented yet.')
 
     # def detect_bad_chans_xscan(self, in_fname, use_tsss=False, n_jobs=1,
     #                            xscan_bin=None, set_bad=True):

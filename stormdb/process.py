@@ -212,6 +212,7 @@ class Maxfilter(ClusterBatch):
         else:
             bad = self.info['bad']
 
+        # NB add check here that all bads in list actually exist in raw!
         if len(bad) > 0:
             # now assume we have a list of str with channel names
             bad_logic = [ch[3:] if ch.startswith('MEG') else ch for ch in bad]

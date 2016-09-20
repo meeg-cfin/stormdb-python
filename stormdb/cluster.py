@@ -219,7 +219,7 @@ class ClusterJob(object):
         """Delete temp .sh"""
         os.unlink(expanduser(sh_file))
 
-    def submit(self, fake=False):
+    def submit(self, fake=False, sh_file='~/submit_job.sh'):
 
         self._check_status()
         if self._submitted:
@@ -244,7 +244,7 @@ class ClusterJob(object):
 
         self._write_qsub_job()
         try:
-            output = subp.check_output(['qsub', 'submit_job.sh'],
+            output = subp.check_output(['qsub', sh_file],
                                        stderr=subp.STDOUT, shell=False)
         except subp.CalledProcessError as cpe:
             raise RuntimeError('qsub submission failed with error code {:d}, '

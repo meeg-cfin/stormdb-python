@@ -215,9 +215,9 @@ class ClusterJob(object):
             bash_file.writelines(self._qsub_script)
 
     @staticmethod
-    def _delete_qsub_job(sh_file='submit_job.sh'):
+    def _delete_qsub_job(sh_file='~/submit_job.sh'):
         """Delete temp .sh"""
-        os.unlink(sh_file)
+        os.unlink(expanduser(sh_file))
 
     def submit(self, fake=False):
 

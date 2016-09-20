@@ -7,12 +7,13 @@ Classes to process data in StormDB layout on Hyades cluster
 # Author: Chris Bailey <cjb@cfin.au.dk>
 #
 # License: BSD (3-clause)
+import os
 import sys
 import logging
 import subprocess as subp
 import re
 from six import string_types
-from os.path import expanduser, environ, unlink
+from os.path import expanduser
 from .access import Query
 
 
@@ -216,7 +217,7 @@ class ClusterJob(object):
     @staticmethod
     def _delete_qsub_job(sh_file='submit_job.sh'):
         """Delete temp .sh"""
-        unlink(sh_file)
+        os.unlink(sh_file)
 
     def submit(self, fake=False):
 
@@ -266,7 +267,7 @@ class ClusterJob(object):
     def _check_status(self):
         if self._completed:
             return
-        output = self.cluster._query('qstat -u ' + environ['USER'] +
+        output = self.cluster._query('qstat -u ' + os.environ['USER'] +
                                      ' | grep {0}'.format(self._jobid) +
                                      ' | awk \'{print $5, $8}\'')[0]  # ONLY
 

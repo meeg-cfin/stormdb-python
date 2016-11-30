@@ -10,6 +10,7 @@ Methods to interact with the STORM database
 
 
 from getpass import getuser, getpass
+from warnings import warn
 import os
 import requests
 from requests import ConnectionError
@@ -41,8 +42,8 @@ class Query(object):
         The default '~/.stormdblogin' should be OK for everyone. If the file
         does not exist (e.g., for first-time users), the user will be
         prompted for a username and password.
-    username : str | None
-        Define username for login. If None (default), current user is assumed.
+    verbose : bool
+        If True, print a lot of messages for debugging. Default: None
 
     Attributes
     ----------
@@ -64,6 +65,7 @@ class Query(object):
                 raise DBError(msg)
         self.proj_name = proj_name  # will be checked later!
         self._stormdblogin = stormdblogin
+        self._verbose = verbose
 
         default_server = 'http://hyades00.pet.auh.dk/modules/StormDb/extract/'
         try_alt_server = False
@@ -94,13 +96,13 @@ class Query(object):
             raise DBError('No access to database server (tried: '
                           '{0} and\n{1})'.format(default_server, alt_server))
 
-        self._get_login_code(verbose=verbose)
-        self._check_proj_name()
+        self._get_login_code()
+        self._check_login_credentials()  # checks templogin and proj_name
 
-    def _get_login_code(self, verbose=False):
+    def _get_login_code(self):
         try:
             with open(os.path.expanduser(self._stormdblogin), 'r') as fid:
-                if verbose:
+                if self._verbose:
                     print('Reading login credentials from ' +
                           self._stormdblogin)
                 self._login_code = fid.readline()
@@ -129,31 +131,56 @@ class Query(object):
 
     def _check_response(self, response, error_str='error'):
         if response.find(error_str) != -1:
-            if (response.find('Your login is not working') != -1 or
-                    response.find('Could not login') != -1):
+            if response.find('Your login is not working') != -1:
+                # Bad templogin-hash
                 msg = 'Looks like your ~/.stormdblogin is old/broken ' +\
-                      'and will be removed. Please enter your credentials' +\
+                      'and will be removed. Please enter your credentials ' +\
                       'and re-run your query.'
-                os.chmod(os.path.expanduser(self._stormdblogin), 0o600)
-                os.remove(os.path.expanduser(self._stormdblogin))
+                warn(msg)
+                try:
+                    os.chmod(os.path.expanduser(self._stormdblogin), 0o600)
+                except OSError:  # file doesn't exist
+                    pass  # missing ~/.stormdblogin
+                else:
+                    os.remove(os.path.expanduser(self._stormdblogin))
                 self._get_login_code()
-            elif response.find('The project does not exist') != -1:
-                msg = ('The project ID/code you used ({0}) does not exist '
-                       'in the database, please check.'.format(self.proj_name))
+
             else:
-                msg = ('StormDB reports error "{0}", not sure what to do '
-                       'about it.'.format(response))
+                if response.find('Could not login') != -1:
+                    msg = ('Invalid username or wrong password!')
+                elif response.find('The project does not exist') != -1:
+                    msg = ('The project ID/code used ({0}) '
+                           'does not exist in the database, please '
+                           'check.'.format(self.proj_name))
+                else:
+                    msg = ('StormDB reports error "{0}", not sure what to do '
+                           'about it.'.format(response))
+                raise DBError(msg)
+        elif response.find("<!DOCTYPE html>") == 0:
+            msg = ('Poorly formed HTTP GET string, this should not happen! '
+                   'Contact a member of the server administration.')
             raise DBError(msg)
 
-        return(0)
-
-    def _check_proj_name(self, verbose=False):
-        url = '?' + self._login_code + '&projectCode=' + self.proj_name
+    def _check_login_credentials(self):
+        '''Check that a valid stormdblogin and project name are given.
+        '''
+        url = ('testlogin?{login:s}&projectCode={proj:s}'
+               ''.format(login=self._login_code, proj=self.proj_name))
         self._send_request(url)
 
-    def _send_request(self, url, verbose=False):
+    def _send_request(self, url, verbose=None):
+        # This rather strange logic enables the following. Note that this
+        # method is private, meaning we control the call logic tightly
+        # - the "global" (instance-level) verbosity will be effective unless
+        #   the method is called with an explicit verbosity
+        # - an explicit False will silence a globally True verbosity!
+        if verbose is True or (verbose is None and self._verbose):
+            this_verbose = True
+        else:
+            this_verbose = False
+
         full_url = self._server + url
-        if verbose:
+        if this_verbose:
             print(full_url)
 
         try:
@@ -164,7 +191,17 @@ class Query(object):
             raise
 
         response = req.content.decode(encoding='UTF-8')
-        self._check_response(response)
+        if this_verbose:
+            print(response)
+
+        try:
+            self._check_response(response)
+        except DBError as e:
+            if this_verbose:
+                print(10 * '*' + ' Last GET string: ' + 10 * '*')
+                print(full_url)
+                print(38 * '*')
+            raise e
 
         # Python 3.x treats pipe strings as bytes, which need to be encoded
         # Here assuming shell output is in UTF-8

@@ -29,6 +29,7 @@ QSUB_SCHEMA = """
 #$ -j y
 #$ -q {queue:s}
 {opt_threaded_flag:s}
+{opt_h_vmem_flag:s}
 
 # Make sure process uses max requested number of threads!
 export OMP_NUM_THREADS=$NSLOTS
@@ -59,6 +60,7 @@ class Cluster(object):
     """
     def __init__(self, name='hyades'):
         self.name = name
+        self._highmem_qs = ['highmem.q']
 
     def _query(self, cmd):
         try:
@@ -112,6 +114,10 @@ class ClusterJob(object):
         The StormDB project name (compulsory).
     queue : str
         The name of the queue to submit the job to (default: 'short.q').
+    h_vmem : str | None
+        Specify the limit on the amount of combined memory consumed by all
+        the processes in the job. This parameter only has an effect for queues
+        that support setting the parameter. The format is in the style "50G".
     n_threads : int
         If > 1 (default), the job must be submitted to a queue that is capapble
         of multi-threaded parallelism.
@@ -138,21 +144,27 @@ class ClusterJob(object):
         The command (if several, separated by ';') to be submitted (cannot
         be modified once defined).
     """
-    def __init__(self, cmd=None, proj_name=None, queue='short.q', n_threads=1,
-                 cwd=True, job_name=None, cleanup=True):
+    def __init__(self, cmd=None, proj_name=None, queue='short.q', h_vmem=None,
+                 n_threads=1, cwd=True, job_name=None, cleanup=True):
         self.cluster = Cluster()
 
         if not cmd:
             raise(ValueError('You must specify the command to run!'))
         if not proj_name:
             raise(ValueError('Jobs are associated with a specific project.'))
-        Query(proj_name)._check_proj_name()  # let fail if bad proj_name
+        Query(proj_name)._check_login_credentials()
         self.proj_name = proj_name
 
         if queue not in self.cluster.queues:
             raise ValueError('Unknown queue ({0})!'.format(queue))
+        if queue in self.cluster._highmem_qs and h_vmem is None:
+            raise RuntimeError('You must specify the anticipated memory '
+                               'usage for the {:s} queue using the option: '
+                               'h_vmem'.format(queue))
+
         self.queue = queue
         self.n_threads = n_threads
+        self.h_vmem = h_vmem
 
         self._qsub_schema = QSUB_SCHEMA
         self._qsub_script = None
@@ -166,17 +178,21 @@ class ClusterJob(object):
         self._cleanup_qsub_job = cleanup
 
         opt_threaded_flag = ""
+        opt_h_vmem_flag = ""
         cwd_flag = ''
         if self.n_threads > 1:
             self.cluster._check_parallel_env(self.queue, 'threaded')
             opt_threaded_flag = "#$ -pe threaded {:d}".format(self.n_threads)
+        if self.h_vmem is not None:
+            # XXX would be nice with some sanity checking here...
+            opt_h_vmem_flag = "#$ -l h_vmem={:s}".format(self.h_vmem)
         if job_name is None:
             job_name = 'py-wrapper'
         if cwd:
             cwd_flag = '#$ -cwd'
 
         self._create_qsub_script(job_name, cwd_flag,
-                                 opt_threaded_flag)
+                                 opt_threaded_flag, opt_h_vmem_flag)
 
     @property
     def cmd(self):
@@ -198,14 +214,17 @@ class ClusterJob(object):
         else:
             self._cmd = value
 
-    def _create_qsub_script(self, job_name, cwd_flag, opt_threaded_flag):
+    def _create_qsub_script(self, job_name, cwd_flag, opt_threaded_flag,
+                            opt_h_vmem_flag):
         """All variables should be defined"""
         if (self.cmd is None or self.queue is None or job_name is None or
-                cwd_flag is None or opt_threaded_flag is None):
+                cwd_flag is None or opt_threaded_flag is None or
+                opt_h_vmem_flag is None):
             raise ValueError('This should not happen, please report an Issue!')
 
         self._qsub_script =\
             self._qsub_schema.format(opt_threaded_flag=opt_threaded_flag,
+                                     opt_h_vmem_flag=opt_h_vmem_flag,
                                      cwd_flag=cwd_flag, queue=self.queue,
                                      exec_cmd=self.cmd, job_name=job_name)
 

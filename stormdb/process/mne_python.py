@@ -1,5 +1,3 @@
-import inspect
-
 from .base import check_destination_writable, check_source_readable
 from ..cluster import ClusterBatch
 
@@ -8,18 +6,9 @@ class MNEPython(ClusterBatch):
     """Clusterised mne-python commands.
     """
     def __init__(self, proj_name, bad=[], verbose=True):
-        super(MNEPython, self).__init__(proj_name)
+        super(MNEPython, self).__init__(proj_name, verbose=verbose)
 
         self.info = dict(bad=bad, io_mapping=[])
-
-    def parse_arguments(self, func):
-        # argspec = inspect.getargspec(Raw.filter)
-        argspec = inspect.getargspec(func)
-        n_pos = len(argspec.args) - len(argspec.defaults)
-        args = argspec.args[1:n_pos]  # drop self
-        kwargs = {key: val for key, val in zip(argspec.args[n_pos:],
-                                               argspec.defaults)}
-        return(args, kwargs)
 
     def raw_filter(self, in_fname, out_fname, l_freq, h_freq, **kwargs):
         if not check_source_readable(in_fname):

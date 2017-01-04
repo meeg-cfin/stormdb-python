@@ -342,7 +342,7 @@ class ClusterJob(object):
 
 
 class ClusterBatch(object):
-    """Many ClusterJob's to be submitted together as a batchi.
+    """Many ClusterJob's to be submitted together as a batch.
 
     This docstring should be overwritten by the children.
     """

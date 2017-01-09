@@ -42,7 +42,8 @@ setup(
     license="BSD",
     keywords="code",
     url="https://github.com/meeg-cfin/stormdb-python.git",
-    packages=['stormdb'],
+    packages=['stormdb',
+              'stormdb.process'],
     scripts=['bin/submit_to_cluster'],
     long_description=read('README.md'),
     classifiers=[

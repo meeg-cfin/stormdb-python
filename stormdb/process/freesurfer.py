@@ -8,10 +8,14 @@ Classes related to Freesurfer
 #
 # License: BSD (3-clause)
 import os
+import subprocess as subp
+import shutil
+
 from six import string_types
 
+from .utils import first_file_in_dir, make_copy_of_dicom_dir
 from ..base import (enforce_path_exists, check_source_readable,
-                    parse_arguments)
+                    parse_arguments, _get_unique_series)
 from ..access import Query
 from ..cluster import ClusterBatch
 
@@ -60,7 +64,7 @@ class Freesurfer(ClusterBatch):
         else:
             if not subjects_dir.startswith('/'):
                 # the path can be _relative_ to the project dir
-                subjects_dir = os.path.join('/projects', proj_name,
+                subjects_dir = os.path.join('/projects', self.proj_name,
                                             subjects_dir)
 
         enforce_path_exists(subjects_dir)
@@ -72,8 +76,8 @@ class Freesurfer(ClusterBatch):
         # Consider placing other vars here
 
     def recon_all(self, subject, t1_series=None, hemi='both',
-                  directive='all', queue='long.q', n_threads=1,
-                  recon_bin='/usr/local/freesurfer/bin/recon-all'):
+                  directive='all', analysis_name=None,
+                  job_options=dict(queue='long.q', n_threads=1)):
         """Build a Freesurfer recon-all command for later execution.
 
         Parameters
@@ -81,65 +85,81 @@ class Freesurfer(ClusterBatch):
         subject : str
             Name (ID) of subject as a string. Both number and 3-character
             code must be given.
-        directive : str
-            The tasks for recon-all to run; default to 'all'. Run
-            `recon-all -help` for list of options.
+        directive : str | list or str
+            The tasks for recon-all to run; defaults to 'all'. Run
+            `recon-all -help` for list of options. Multiple options can be
+            specified as a list of strings.
         t1_series : str | None
             The name of the T1-weighted MR series to use for cortex extraction.
             This parameter is optional, it only has an effect when running
             recon-all for the first time (mri_convert from DICOM to mgz). If
             None, the value given at object creation time will be used.
+        analysis_name : str | None (optional)
+            Optional suffix to add to subject name (e.g. '_t2mask')
         hemi : str (optional)
             Defaults to 'both'. You may also specify either 'lh' or 'rh'.
-        queue : str (optional)
-            Cluster queue to submit the jobs to (default: 'long.q').
-        n_threads : int (optional)
-            Number of parallel CPU cores to request for the job; default is 1.
-            NB: not all queues support multi-threaded execution.
-        recon_bin : str (optional)
-            Path to `recon-all` executable.
+        job_options : dict
+            Dictionary of optional arguments to pass to ClusterJob. The
+            default set of options is:
+                job_options=dict(queue='long.q', n_threads=1)
+            which sends the job to the cluster queue 'long.q', specifies that
+            a single CPU core should be used (not all queues support multi-
+            threading).
         """
+        if isinstance(directive, string_types):
+            directives = [directive]
+        elif not isinstance(directive, (list, tuple)):
+            raise ValueError('Directive must be string or list of strings.')
+        else:
+            directives = directive[:]  # copy!
 
         if subject not in self.info['valid_subjects']:
             raise RuntimeError(
                 'Subject {0} not found in database!'.format(subject))
+
+        if analysis_name is not None:
+            if not isinstance(analysis_name, string_types):
+                raise ValueError('Analysis name suffix must be a string.')
+            subject += analysis_name
         cur_subj_dir = os.path.join(self.info['subjects_dir'], subject)
 
-        # Start building command, force subjects_dir on cluster nodes
-        cmd = (recon_bin +
-               ' -{0} -subjid {1}'.format(directive, subject) +
-               ' -sd {0}'.format(self.info['subjects_dir']))
-
-        if hemi != 'both':
-            if hemi not in ['lh', 'rh']:
-                raise ValueError("Hemisphere must be 'lh' or 'rh'.")
-            cmd += ' -hemi {0}'.format(hemi)
+        # Build command, force subjects_dir on cluster nodes
+        cmd = ('recon-all -subjid {}'.format(subject) +
+               ' -sd {}'.format(self.info['subjects_dir']))
 
         # has DICOM conversion been performed?
         if not os.path.exists(cur_subj_dir) or not check_source_readable(
                 os.path.join(cur_subj_dir, 'mri', 'orig', '001.mgz')):
+            self.logger.info('Initialising freesurfer folder structure and '
+                             'converting DICOM files; this should take about '
+                             '15 seconds...')
             if t1_series is None:
                 if 't1_series' not in self.info.keys():
                     raise RuntimeError('Name of T1 series must be defined!')
                 else:
                     t1_series = self.info['t1_series']
 
-            series = Query(self.proj_name).filter_series(description=t1_series,
-                                                         subjects=subject,
-                                                         modalities="MR")
-            if len(series) == 0:
-                raise RuntimeError('No series found matching {0} for subject '
-                                   '{1}'.format(t1_series, subject))
-            elif len(series) > 1:
-                print('Multiple series match the target:')
-                print([s['seriename'] for s in series])
-                raise RuntimeError('More than one MR series found that '
-                                   'matches the pattern {0}'.format(t1_series))
-            dicom_path = os.path.join(series[0]['path'], series[0]['files'][0])
-            cmd += ' -i {dcm_pth:s}'.format(dcm_pth=dicom_path)
+            series = _get_unique_series(Query(self.proj_name), t1_series,
+                                        subject, 'MR')
+            tmpdir = make_copy_of_dicom_dir(series[0]['path'])
+            first_dicom = first_file_in_dir(tmpdir)
+            conv_cmd = cmd + ' -i {}'.format(first_dicom)
+            try:
+                subp.check_output([conv_cmd], stderr=subp.STDOUT, shell=True)
+            except subp.CalledProcessError as cpe:
+                raise RuntimeError('Conversion failed with error message: '
+                                   '{:s}'.format(cpe.returncode, cpe.output))
+            finally:
+                shutil.rmtree(tmpdir)
+            self.logger.info('...done.')
 
-        self.add_job(cmd, queue=queue, n_threads=n_threads,
-                     job_name='recon-all')
+        if hemi != 'both':
+            if hemi not in ['lh', 'rh']:
+                raise ValueError("Hemisphere must be 'lh' or 'rh'.")
+            cmd += ' -hemi {0}'.format(hemi)
+
+        cmd += ' -{}'.format(' -'.join(directives))
+        self.add_job(cmd, job_name='recon-all', **job_options)
 
     def apply_to_subjects(self, subjects='all', method='recon_all',
                           method_args=None):

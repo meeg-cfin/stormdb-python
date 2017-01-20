@@ -43,7 +43,9 @@ setup(
     keywords="code",
     url="https://github.com/meeg-cfin/stormdb-python.git",
     packages=['stormdb'],
-    scripts=['bin/submit_to_cluster'],
+    scripts=['bin/submit_to_cluster',
+             'bin/cfin_flash_bem',
+             'bin/cfin_watershed_bem'],
     long_description=read('README.md'),
     classifiers=[
         "Development Status :: 3 - Alpha",

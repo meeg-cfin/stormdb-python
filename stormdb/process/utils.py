@@ -13,12 +13,22 @@ import shutil
 import tempfile
 from glob import glob
 
+from ..base import mkdir_p
 
-def make_copy_of_dicom_dir(dicom_dir):
-    tmpdir = tempfile.mkdtemp()
-    for dcm in glob(os.path.join(dicom_dir, '*.*')):
-        shutil.copy(dcm, tmpdir)
-    return tmpdir
+
+def make_copy_of_dicom_dir(dicom_dir, out_dir=None):
+    if out_dir is None:
+        out_dir = tempfile.mkdtemp()
+    else:
+        mkdir_p(out_dir)
+
+    all_files = glob(os.path.join(dicom_dir, '*.*'))
+    if len(all_files) == 0:
+        raise RuntimeError(
+            'No files to copy found in {}'.format(dicom_dir))
+    for dcm in all_files:
+        shutil.copy(dcm, out_dir)
+    return out_dir
 
 
 def first_file_in_dir(input_dir):

@@ -8,6 +8,8 @@ import os
 import errno
 import inspect
 
+from six import string_types
+
 
 def check_destination_writable(dest):
     try:
@@ -73,3 +75,38 @@ def _get_unique_series(qy, series_name, subject, modality):
                            'matches the pattern {0}'.format(series_name))
 
     return series
+
+
+def apply_method(method='recon_all', *args, **kwargs):
+    """Apply a method/function with parameters
+
+    Parameters
+    ----------
+    """
+    # cmd = 'self.' + method + "('{}'".format(*args)
+    cmd = method + "('{0}'".format(*args)
+    for k, v in kwargs.iteritems():
+        # if method_args is not None and k in method_args.keys():
+        #     v = method_args[k]
+
+        if isinstance(v, string_types):
+            cmd += ", {0}='{1}'".format(k, v)
+        else:
+            cmd += ', {0}={1}'.format(k, v)
+
+    cmd += ')'
+    eval(cmd)
+
+
+def add_to_command(cmd, addition, *args, **kwargs):
+    if cmd is None:
+        cmd = []
+
+    fmt = addition.format(*args, **kwargs)
+
+    if isinstance(cmd, string_types):
+        cmd = '{:s}\n{:s}'.format(cmd, fmt)
+    elif isinstance(cmd, list):
+        cmd += ['{:s}'.format(fmt)]
+
+    return cmd

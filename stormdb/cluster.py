@@ -280,8 +280,9 @@ class ClusterJob(object):
                                'output is:\n\n{:s}'.format(cpe.returncode,
                                                            cpe.output))
         else:
-            # print(output.rstrip())
-            m = re.search('(\d+)', output.rstrip())
+            # py2-3 safety
+            output = output.decode('ascii', 'ignore').rstrip()
+            m = re.search('(\d+)', output)
             self._jobid = m.group(1)
             if self._cleanup_qsub_job:
                 self._delete_qsub_job()

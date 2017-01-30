@@ -42,7 +42,7 @@ setup(
     license="BSD",
     keywords="code",
     url="https://github.com/meeg-cfin/stormdb-python.git",
-    packages=['stormdb'],
+    packages=['stormdb', 'stormdb.process'],
     scripts=['bin/submit_to_cluster',
              'bin/cfin_flash_bem',
              'bin/cfin_watershed_bem'],

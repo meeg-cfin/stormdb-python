@@ -16,9 +16,10 @@ import glob
 from six import string_types
 from warnings import warn
 
-from .utils import first_file_in_dir, make_copy_of_dicom_dir
+from .utils import (first_file_in_dir, make_copy_of_dicom_dir,
+                    _get_absolute_proj_path)
 from ..base import (enforce_path_exists, check_source_readable,
-                    _get_unique_series, add_to_command)
+                    _get_unique_series, add_to_command, mkdir_p)
 from ..access import Query
 from ..cluster import ClusterBatch
 
@@ -51,6 +52,9 @@ class Freesurfer(ClusterBatch):
         The name of the T1-weighted MR series to use for cortex extraction.
         This parameter is optional, it only has an effect when running
         recon-all for the first time (mri_convert from DICOM to mgz).
+    log_dir : str
+        The directory into which job logfiles are written. Defaults to
+        'scratch/qsub_logs' in the project folder.
     verbose : bool
         If True, print out extra information as we go (default: False).
 
@@ -61,7 +65,7 @@ class Freesurfer(ClusterBatch):
     """
 
     def __init__(self, proj_name=None, subjects_dir=None, t1_series=None,
-                 verbose=False):
+                 log_dir='scratch/qsub_logs', verbose=False):
         super(Freesurfer, self).__init__(proj_name, verbose=verbose)
 
         if subjects_dir is None:
@@ -73,12 +77,14 @@ class Freesurfer(ClusterBatch):
                                  'or by setting the SUBJECT_DIR environment '
                                  'variable. The directory must exist.')
         else:
-            if not subjects_dir.startswith('/'):
-                # the path can be _relative_ to the project dir
-                subjects_dir = os.path.join('/projects', self.proj_name,
-                                            subjects_dir)
+            subjects_dir = _get_absolute_proj_path(subjects_dir,
+                                                   self.proj_name)
+            os.environ['SUBJECTS_DIR'] = subjects_dir
 
         enforce_path_exists(subjects_dir)
+
+        log_dir = _get_absolute_proj_path(log_dir, self.proj_name)
+        mkdir_p(log_dir)
 
         valid_subjects = Query(proj_name).get_subjects(has_modality='MR')
         if len(valid_subjects) == 0:
@@ -87,7 +93,7 @@ class Freesurfer(ClusterBatch):
                 .format(self.proj_name))
 
         self.info = dict(valid_subjects=valid_subjects,
-                         subjects_dir=subjects_dir)
+                         subjects_dir=subjects_dir, log_dir=log_dir)
 
         if t1_series is not None:
             self.info.update(t1_series=t1_series)
@@ -98,7 +104,7 @@ class Freesurfer(ClusterBatch):
 
     def recon_all(self, subject, t1_series=None, hemi='both',
                   directives=['all', '3T'], analysis_name=None,
-                  job_options=dict(queue='long.q', n_threads=1)):
+                  job_options=None):
         """Build a Freesurfer recon-all command for later execution.
 
         Parameters
@@ -124,7 +130,7 @@ class Freesurfer(ClusterBatch):
             Optional suffix to add to subject name (e.g. '_t2mask')
         hemi : str (optional)
             Defaults to 'both'. You may also specify either 'lh' or 'rh'.
-        job_options : dict
+        job_options : dict | None
             Dictionary of optional arguments to pass to ClusterJob. The
             default set of options is:
                 job_options=dict(queue='long.q', n_threads=1)
@@ -150,13 +156,22 @@ class Freesurfer(ClusterBatch):
         # ii) COPYING the directives-list to another one
         recon_all_flags = list(directives)
 
+        # default values defined here
+        this_job_opts = dict(queue='long.q', n_threads=1,
+                             working_dir=self.info['subjects_dir'],
+                             log_dir=self.info['log_dir'])
+        if job_options is not None:
+            if not isinstance(job_options, dict):
+                raise ValueError('Job options must be given as a dict')
+            this_job_opts.update(job_options)  # user-spec'd keys updated
+
         for sub in subjects:
             self.logger.info(sub)
             try:
                 self._recon_all(sub, directives=recon_all_flags,
                                 hemi=hemi, t1_series=t1_series,
                                 analysis_name=analysis_name,
-                                job_options=job_options)
+                                job_options=this_job_opts)
             except:
                 self._joblist = []  # evicerate on error
                 raise
@@ -166,7 +181,7 @@ class Freesurfer(ClusterBatch):
 
     def _recon_all(self, subject, t1_series=None, hemi='both',
                    directives='all', analysis_name=None,
-                   job_options=dict(queue='long.q', n_threads=1)):
+                   job_options=dict()):
         "Method for single subjects"
 
         if subject not in self.info['valid_subjects']:
@@ -219,9 +234,12 @@ class Freesurfer(ClusterBatch):
 
     def create_bem_surfaces(self, subject, analysis_name=None,
                             flash5=None, flash30=None, make_coreg_head=True,
-                            job_options=dict(queue='short.q', n_threads=1),
-                            **kwargs):
-        """Convert mri2mesh output to Freesurfer meshes suitable for BEMs.
+                            job_options=None, **kwargs):
+        """Create BEM surfaces with or without multi-echo FLASH images.
+
+        If a flash5-image is not specified, the watershed-algorithm in
+        Freesurfer will be used to create the inner skull surface only,
+        though results vary.
 
         Parameters
         ----------
@@ -233,9 +251,7 @@ class Freesurfer(ClusterBatch):
         flash5 : str | None (optional)
             The name of the multi-echo FLASH series with 5 degree flip angle
             that will be used to create the 3 main compartments of the head:
-            inner skull, outer skull and outer skin. If None (default), the
-            watershed-algorithm in Freesurfer will be used to create the inner
-            skull surface only, though results vary.
+            inner skull, outer skull and outer skin. Default: None.
         flash30 : str | None (optional)
             The name of the multi-echo FLASH series with 30 degree flip angle.
             If None (default), only the 5 degree FLASH will be used. The
@@ -243,13 +259,14 @@ class Freesurfer(ClusterBatch):
         make_coreg_head : bool
             If True (default), make a high-resolution head (outer skin) surface
             for MEG/EEG coregistration purposes. NB: The number of vertices is
-            currently hard-coded to be 20,000; this is arbitrary though, and
-            could be made more or less depending on needs.
+            currently extremely high: around 350,000; raise an Issue on
+            GitHub if this is a problem.
         analysis_name : str | None
             Optional suffix to add to subject name (e.g. '_with_t2mask')
-        job_options : dict
-            Dictionary of optional arguments to pass to ClusterJob. The
-            default set here is: job_options=dict(queue='short.q', n_threads=1)
+        job_options : dict | None
+            Dictionary of optional arguments to pass to ClusterJob. If None,
+            the default set is: job_options=dict(queue='short.q', n_threads=1)
+            See stormdb.cluster.ClusterJob for more details.
         **kwargs : optional
             Optional keyword arguments, depending on whether FLASH-images or
             watershed-algorithm is used.
@@ -276,6 +293,15 @@ class Freesurfer(ClusterBatch):
                 raise ValueError('flash30 must be a series name (str)')
             do_flash = True
 
+        # default values defined here
+        this_job_opts = dict(queue='short.q', n_threads=1,
+                             working_dir=self.info['subjects_dir'],
+                             log_dir=self.info['log_dir'])
+        if job_options is not None:
+            if not isinstance(job_options, dict):
+                raise ValueError('Job options must be given as a dict')
+            this_job_opts.update(job_options)  # user-spec'd keys updated
+
         for sub in subjects:
             self.logger.info(sub)
             if subject not in self.info['valid_subjects']:
@@ -298,12 +324,12 @@ class Freesurfer(ClusterBatch):
                         sub, flash5, flash30=flash30,
                         make_coreg_head=make_coreg_head,
                         analysis_name=analysis_name,
-                        job_options=job_options, **kwargs)
+                        job_options=this_job_opts, **kwargs)
                 elif do_watershed:
                     self._create_bem_surfaces_watershed(
                         sub, make_coreg_head=make_coreg_head,
                         analysis_name=analysis_name,
-                        job_options=job_options, **kwargs)
+                        job_options=this_job_opts, **kwargs)
             except:
                 self._joblist = []  # evicerate on error
                 raise
@@ -313,8 +339,7 @@ class Freesurfer(ClusterBatch):
 
     def _create_bem_surfaces_flash(self, subject, flash5, make_coreg_head=True,
                                    analysis_name=None, flash30=None,
-                                   job_options=dict(queue='short.q',
-                                                    n_threads=1)):
+                                   job_options=dict()):
         """Create BEMs for single subject."""
         subject_dirname = subject
         if analysis_name is not None:
@@ -345,7 +370,10 @@ class Freesurfer(ClusterBatch):
             cmd = add_to_command(cmd, 'cp {}/* {}',
                                  series[0]['path'], flash_dcm)
 
-        cmd = add_to_command(cmd, 'cd {} && mne_organize_dicom {}',
+        # NB using modified version of mne_organize_dicom!
+        # Changes: 1) strip unicode from series name,
+        #          2) fix if-clause bug for checking relative pathness
+        cmd = add_to_command(cmd, 'cd {} && cfin_organize_dicom {}',
                              flash_dir, flash_dcm)
 
         cmd = add_to_command(cmd, 'rm -f flash05 && ln -s {} flash05',
@@ -367,21 +395,29 @@ class Freesurfer(ClusterBatch):
         for sn in surf_names:
             tri_fname = op.join(bem_dir, 'flash', sn + '.tri')
             surf_fname = op.join(bem_dir, 'flash', sn + '.surf')
+            link_fname = op.join(bem_dir, sn + '.surf')
             cmd = add_to_command(cmd,
                                  ('mne_convert_surface --tri {tri:s} '
                                   ' --surfout {surf:s} --swap --mghmri '
                                   '{f5reg:s}'), tri=tri_fname, surf=surf_fname,
                                  f5reg=flash5_reg)
+            cmd = add_to_command(cmd, ('rm -f {link:s} && ln -s {surf:s} '
+                                       '{link:s} && touch {link:s}'),
+                                 link=link_fname, surf=surf_fname)
+            if sn == 'outer_skin' and not make_coreg_head:
+                cmd = make_sparse_head_commands(bem_dir, subject_dirname,
+                                                cmd=cmd)
         if make_coreg_head:
             cmd = make_coreg_head_commands(bem_dir, subject_dirname, cmd=cmd)
+            # mkheadsurf can be as much as 2GB
+            job_options.update({'mem_free': '4G'})
 
         self.add_job(cmd, job_name='cfin_flash_bem', **job_options)
 
     def _create_bem_surfaces_watershed(self, subject, analysis_name=None,
                                        atlas=False, gcaatlas=True,
                                        make_coreg_head=False,
-                                       job_options=dict(queue='short.q',
-                                                        n_threads=1)):
+                                       job_options=dict()):
         """Create inner_skull for single subject."""
         subject_dirname = subject
         if analysis_name is not None:
@@ -400,25 +436,30 @@ class Freesurfer(ClusterBatch):
         # self.logger.info('Running mne_watershed_bem...')
         cmd = None
 
-        # Just in case: commands below are dependent on it set in environ
-        # cmd = add_to_command(cmd, 'export SUBJECTS_DIR={}',
-        #                     self.info['subjects_dir'])
-
         # NB Using local version of mne_watershed_bem
+        # NB creates the SUBJECT-head.fif file from outer_skin
         cmd = add_to_command(cmd, ('cfin_watershed_bem --sd {sd:s} '
                                    '--subject {sub:s} {atl:s} --overwrite'),
                              sd=self.info['subjects_dir'],
                              sub=subject_dirname, atl=atlas_str)
 
         bem_dir = op.join(self.info['subjects_dir'], subject_dirname, 'bem')
-        surf_names = ('inner_skull',)
+        surf_names = ('brain', 'inner_skull', 'outer_skull', 'outer_skin')
         for sn in surf_names:
-            surf_fname = op.join(bem_dir, sn + '.surf')
-            cmd = add_to_command(cmd, ('ln -s watershed/{}_{}_surface {}'),
-                                 subject_dirname, sn, surf_fname)
+            link_fname = op.join(bem_dir, sn + '.surf')
+            cmd = add_to_command(cmd, ('rm -f {link:s} && ln -s '
+                                       'watershed/{sub:s}_{sn:s}_surface '
+                                       '{link:s} && touch {link:s}'),
+                                 sub=subject_dirname, sn=sn, link=link_fname)
+
+            if sn == 'outer_skin' and not make_coreg_head:
+                cmd = make_sparse_head_commands(bem_dir, subject_dirname,
+                                                cmd=cmd)
 
         if make_coreg_head:
             cmd = make_coreg_head_commands(bem_dir, subject_dirname, cmd=cmd)
+            # mkheadsurf can be as much as 2GB
+            job_options.update({'mem_free': '4G'})
 
         self.add_job(cmd, job_name='watershed_bem', **job_options)
 
@@ -564,6 +605,17 @@ def make_coreg_head_commands(bem_dir, subject_dirname, cmd=None):
     cmd = add_to_command(cmd, ('rm -f {sub:s}-head.fif && '
                          'ln -s {sub:s}-head-dense.fif {sub:s}-head.fif'),
                          sub=subject_dirname)
+    return cmd
+
+
+def make_sparse_head_commands(bem_dir, subject_dirname, cmd=None):
+
+    cmd = add_to_command(cmd, ('cd {} && mne_surf2bem --surf outer_skin.surf '
+                               '--check --fif {}-head-sparse.fif'),
+                         bem_dir, subject_dirname)
+    cmd = add_to_command(cmd, ('rm -f {sub:s}-head.fif && '
+                               'ln -s {sub:s}-head-sparse.fif '
+                               '{sub:s}-head.fif'), sub=subject_dirname)
     return cmd
 
 

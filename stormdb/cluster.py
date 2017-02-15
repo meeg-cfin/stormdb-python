@@ -213,7 +213,7 @@ class ClusterJob(object):
             if not os.path.exists(self.log_dir):
                 raise ValueError(
                     'Log directory {} does not exist.'.format(self.log_dir))
-            log_name_prefix = os.path.join(log_dir, job_name)
+            log_name_prefix = os.path.join(self.log_dir, job_name)
 
         self._create_qsub_script(job_name, cwd_flag,
                                  opt_threaded_flag, opt_h_vmem_flag,

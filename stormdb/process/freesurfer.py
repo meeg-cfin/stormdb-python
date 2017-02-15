@@ -304,10 +304,10 @@ class Freesurfer(ClusterBatch):
 
         for sub in subjects:
             self.logger.info(sub)
-            if subject not in self.info['valid_subjects']:
+            if sub not in self.info['valid_subjects']:
                 raise RuntimeError(
-                    'Subject {0} not found in database!'.format(subject))
-            cur_subj_dir = os.path.join(self.info['subjects_dir'], subject)
+                    'Subject {0} not found in database!'.format(sub))
+            cur_subj_dir = os.path.join(self.info['subjects_dir'], sub)
             try:
                 enforce_path_exists(cur_subj_dir)
             except IOError as err:

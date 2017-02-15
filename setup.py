@@ -45,7 +45,8 @@ setup(
     packages=['stormdb', 'stormdb.process'],
     scripts=['bin/submit_to_cluster',
              'bin/cfin_flash_bem',
-             'bin/cfin_watershed_bem'],
+             'bin/cfin_watershed_bem',
+             'bin/cfin_organize_dicom'],
     long_description=read('README.md'),
     classifiers=[
         "Development Status :: 3 - Alpha",

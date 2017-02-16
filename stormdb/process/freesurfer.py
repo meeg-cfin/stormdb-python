@@ -404,7 +404,7 @@ class Freesurfer(ClusterBatch):
             cmd = add_to_command(cmd, ('rm -f {link:s} && ln -s {surf:s} '
                                        '{link:s} && touch {link:s}'),
                                  link=link_fname, surf=surf_fname)
-            if sn == 'outer_skin' and not make_coreg_head:
+            if sn == 'outer_skin':  # do this even if highres is requested
                 cmd = make_sparse_head_commands(bem_dir, subject_dirname,
                                                 cmd=cmd)
         if make_coreg_head:
@@ -452,7 +452,7 @@ class Freesurfer(ClusterBatch):
                                        '{link:s} && touch {link:s}'),
                                  sub=subject_dirname, sn=sn, link=link_fname)
 
-            if sn == 'outer_skin' and not make_coreg_head:
+            if sn == 'outer_skin':  # do this even if highres is requested
                 cmd = make_sparse_head_commands(bem_dir, subject_dirname,
                                                 cmd=cmd)
 
@@ -608,16 +608,20 @@ def make_coreg_head_commands(bem_dir, subject_dirname, cmd=None):
     return cmd
 
 
-def make_sparse_head_commands(bem_dir, subject_dirname, cmd=None):
+def make_medium_head_commands(bem_dir, subject_dirname, cmd=None):
 
     cmd = add_to_command(cmd, ('cd {} && mne_surf2bem --surf outer_skin.surf '
                                '--check --fif {}-head-sparse.fif'),
                          bem_dir, subject_dirname)
     cmd = add_to_command(cmd, ('rm -f {sub:s}-head.fif && '
-                               'ln -s {sub:s}-head-sparse.fif '
+                               'ln -s {sub:s}-head-medium.fif '
                                '{sub:s}-head.fif'), sub=subject_dirname)
     return cmd
 
+
+# spoof this: mne coreg tries to find the -medium head surface
+def make_sparse_head_commands(bem_dir, subject_dirname, cmd=None):
+    return make_medium_head_commands(bem_dir, subject_dirname, cmd=cmd)
 
 def _prepare_env(subject, subjects_dir, requires_freesurfer, requires_mne):
     """Helper to prepare an env object for subprocess calls.

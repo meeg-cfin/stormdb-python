@@ -399,8 +399,8 @@ class SimNIBS(ClusterBatch):
                                        'touch {mne_surf:s}'),
                                  mne_surf=mne_surf, fsmesh=bem_fname)
 
-            if not make_coreg_head and bem_layer == 'outer_skin':
-                head_fname = op.join(simnibs_bem_dir, 'head-sparse.fif')
+            if bem_layer == 'outer_skin':  # always create a medium head
+                head_fname = op.join(simnibs_bem_dir, 'head-medium.fif')
                 link_fname = op.join(bem_dir, '{}-head.fif')
                 cmd = add_to_command(cmd,
                                      ('mne_surf2bem --surf {skin_surf:s} '

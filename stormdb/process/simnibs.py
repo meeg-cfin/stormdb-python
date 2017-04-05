@@ -401,7 +401,8 @@ class SimNIBS(ClusterBatch):
 
             if bem_layer == 'outer_skin':  # always create a medium head
                 head_fname = op.join(simnibs_bem_dir, 'head-medium.fif')
-                link_fname = op.join(bem_dir, '{}-head.fif')
+                link_fname = op.join(bem_dir, m2m_outputs['subject'] +
+                                     '-head-sparse.fif')
                 cmd = add_to_command(cmd,
                                      ('mne_surf2bem --surf {skin_surf:s} '
                                       '--id 4 --check --fif {head_fif:s}'),

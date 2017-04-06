@@ -208,10 +208,12 @@ class SimNIBS(ClusterBatch):
                                                      self.proj_name)
             enforce_path_exists(link_to_fs_dir)
             if op.exists(op.join(link_to_fs_dir, subject)):
-                raise RuntimeError(
-                    'The directory {} already contains the subject-folder {}.'
-                    '\nYou must manually (re)move it before proceeding.'
-                    .format(link_to_fs_dir, subject))
+                warn('The directory {} already contains the subject-folder {}.'
+                     '\nIf you wish to re-run the full pipeline, you must '
+                     'manually (re)move it before proceeding.'
+                     '\nIf you continue, SimNibs will try to take off where '
+                     'it left of last.'
+                     .format(link_to_fs_dir, subject))
             m2m_outputs = self._mri2mesh_outputs(subject, analysis_name)
             link_name = op.join(link_to_fs_dir, m2m_outputs['subject'])
             link_cmd = 'ln -s {} {}'.format(m2m_outputs['fs_dir'], link_name)

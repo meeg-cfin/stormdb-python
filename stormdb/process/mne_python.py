@@ -155,7 +155,7 @@ class MNEPython(ClusterBatch):
             option should be True for KIT files, since forward computation
             with reference channels is not currently supported.
         """
-        for fname in (meas_fname, trans_fname, bem_fname):
+        for fname in (meas_fname, trans_fname, bem_fname, src_fname):
             if not check_source_readable(fname):
                 raise IOError('Input file {} not readable!'.format(fname))
         if not check_destination_writable(fwd_fname):

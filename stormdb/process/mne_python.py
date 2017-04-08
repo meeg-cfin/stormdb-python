@@ -1,17 +1,21 @@
 import os
 from .utils import (_get_absolute_proj_path)
 from ..base import (enforce_path_exists, check_destination_writable,
-                    check_source_readable)
+                    check_source_readable, mkdir_p)
 from ..cluster import ClusterBatch
 
 
 class MNEPython(ClusterBatch):
     """Clusterised mne-python commands.
     """
-    def __init__(self, proj_name, bad=[], verbose=False):
+    def __init__(self, proj_name, bad=[], verbose=False,
+                 log_dir='scratch/qsub_logs'):
         super(MNEPython, self).__init__(proj_name, verbose=verbose)
 
-        self.info = dict(bad=bad, io_mapping=[])
+        log_dir = _get_absolute_proj_path(log_dir, self.proj_name)
+        mkdir_p(log_dir)
+
+        self.info = dict(bad=bad, io_mapping=[], log_dir=log_dir)
 
     def raw_filter(self, in_fname, out_fname, l_freq, h_freq, **kwargs):
         if not check_source_readable(in_fname):
@@ -31,7 +35,8 @@ class MNEPython(ClusterBatch):
                              l_freq=l_freq, h_freq=h_freq, kwargs=filtargs)
         cmd += "\""
 
-        self.add_job(cmd, n_threads=1, job_name='mne.raw.filter')
+        self.add_job(cmd, n_threads=1, job_name='mne.raw.filter',
+                     log_dir=self.info['log_dir'])
         self.info['io_mapping'] += [dict(input=in_fname, output=out_fname)]
 
     def setup_source_space(self, subject, src_fname, **kwargs):
@@ -77,7 +82,8 @@ class MNEPython(ClusterBatch):
                              kwargs=filtargs)
         cmd += "\""
 
-        self.add_job(cmd, n_threads=1, job_name='mne.src_space')
+        self.add_job(cmd, n_threads=1, job_name='mne.src_space',
+                     log_dir=self.info['log_dir'])
         self.info['io_mapping'] += [dict(input=subject, output=src_fname)]
 
     def prepare_bem_model(self, subject, bem_fname, **kwargs):
@@ -117,7 +123,8 @@ class MNEPython(ClusterBatch):
                              kwargs=filtargs)
         cmd += "\""
 
-        self.add_job(cmd, n_threads=1, job_name='mne.prep_bem')
+        self.add_job(cmd, n_threads=1, job_name='mne.prep_bem',
+                     log_dir=self.info['log_dir'])
         self.info['io_mapping'] += [dict(input=subject, output=bem_fname)]
 
     def make_forward_solution(self, meas_fname, trans_fname, bem_fname,
@@ -167,7 +174,8 @@ class MNEPython(ClusterBatch):
                              src=src_fname, fwd=fwd_fname, kwargs=filtargs)
         cmd += "\""
 
-        self.add_job(cmd, n_threads=1, job_name='mne.fwd_solve')
+        self.add_job(cmd, n_threads=1, job_name='mne.fwd_solve',
+                     log_dir=self.info['log_dir'])
         self.info['io_mapping'] += [dict(input=meas_fname, output=fwd_fname)]
 
     def _triage_subjects_dir_from_kwargs(self, kwargs):

@@ -68,7 +68,7 @@ class MNEPython(ClusterBatch):
         script = ("from mne import setup_source_space, write_source_spaces;"
                   "src = setup_source_space('{subject:s}', "
                   "fname=None{kwargs:});"
-                  "write_source_spaces(src, '{src_fname:s}')")
+                  "write_source_spaces(fname='{src_fname:s}', src=src)")
         filtargs = ', '.join("{!s}={!r}".format(key, val) for
                              (key, val) in kwargs.items())
         filtargs = ', ' + filtargs if len(kwargs) > 0 else filtargs

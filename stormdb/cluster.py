@@ -6,7 +6,7 @@ Classes to process data in StormDB layout on Hyades cluster
 """
 # Author: Chris Bailey <cjb@cfin.au.dk>
 #
-# License: BSD (3-clause)
+# License: MIT
 import os
 import sys
 import logging

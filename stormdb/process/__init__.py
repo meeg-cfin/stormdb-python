@@ -3,7 +3,7 @@
 # Authors:  Christopher Bailey <cjb@cfin.au.dk>
 #           Mads Jensen <mads@cfin.au.dk>
 #
-# License: BSD (3-clause)
+# License: MIT
 
 from .maxfilter import Maxfilter
 from .mne_python import MNEPython

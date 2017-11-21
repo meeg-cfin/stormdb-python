@@ -8,7 +8,7 @@ http://www.simnibs.de
 """
 # Author: Chris Bailey <cjb@cfin.au.dk>
 #
-# License: BSD (3-clause)
+# License: MIT
 import os
 import os.path as op
 from six import string_types

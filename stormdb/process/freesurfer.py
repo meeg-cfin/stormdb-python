@@ -6,7 +6,7 @@ Classes related to Freesurfer
 """
 # Author: Chris Bailey <cjb@cfin.au.dk>
 #
-# License: BSD (3-clause)
+# License: MIT
 import os
 import os.path as op
 import subprocess as subp

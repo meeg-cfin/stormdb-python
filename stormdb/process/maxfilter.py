@@ -10,7 +10,7 @@ Credits:
 """
 # Author: Chris Bailey <cjb@cfin.au.dk>
 #
-# License: BSD (3-clause)
+# License: MIT
 import os.path as op
 import warnings
 import numpy as np

@@ -6,7 +6,7 @@ Utility function for process-modules
 """
 # Author: Chris Bailey <cjb@cfin.au.dk>
 #
-# License: BSD (3-clause)
+# License: MIT
 import subprocess as subp
 import os
 import os.path as op

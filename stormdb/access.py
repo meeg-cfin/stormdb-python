@@ -6,7 +6,7 @@ Methods to interact with the STORM database
 """
 # Author: Chris Bailey <cjb@cfin.au.dk>
 #
-# License: BSD (3-clause)
+# License: MIT
 
 
 from getpass import getuser, getpass

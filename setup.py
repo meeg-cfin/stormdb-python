@@ -39,7 +39,7 @@ setup(
     author="Christopher Bailey",
     author_email="cjb@cfin.au.dk",
     description=("Tools for accessing StormDb @ CFIN"),
-    license="BSD",
+    license="MIT",
     keywords="code",
     url="https://github.com/meeg-cfin/stormdb-python.git",
     packages=['stormdb', 'stormdb.process'],
@@ -51,7 +51,7 @@ setup(
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Topic :: Utilities",
-        "License :: OSI Approved :: BSD License",
+        "License :: OSI Approved :: MIT License",
     ],
     cmdclass={
         'clean': CleanCommand,

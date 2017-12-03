@@ -237,8 +237,8 @@ class ClusterJob(object):
                     ratio = units[totmem_unit.lower()] /\
                                 units[memlim_unit.lower()]
                 except KeyError:
-                    raise ValueError('Something is wrong with the memory units,'
-                                     ' likely {:s}'.format(self.total_memory))
+                    raise ValueError('Something is wrong with the memory units'
+                                     ', likely {:s}'.format(self.total_memory))
             else:
                 ratio = 1.
 

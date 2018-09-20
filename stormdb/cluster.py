@@ -225,11 +225,11 @@ class ClusterJob(object):
                     'Maximum number of parallel threads is one (1) when total '
                     'memory consumption is specified.')
             # XXX would be nice with some sanity checking here...
-            h_vmem = self.cluster.get_memlimit_per_process(self.queue))
+            h_vmem = self.cluster.get_memlimit_per_process(self.queue)
             # NB this has to be explicitly set, see Issue #53
             opt_h_vmem_flag = "#$ -l h_vmem={:s}".format(h_vmem)
             _, totmem, totmem_unit = re.split('(\d+)', self.total_memory)
-            _, memlim, memlim_unit = re.split('(\d+)', h_vmem
+            _, memlim, memlim_unit = re.split('(\d+)', h_vmem)
 
             if totmem_unit != memlim_unit:
                 units = dict(k=1e3, m=1e6, g=1e9, t=1e12)

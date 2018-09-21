@@ -215,9 +215,11 @@ class ClusterJob(object):
         self._cleanup_qsub_job = cleanup
 
         opt_threaded_flag = ""
-        opt_h_vmem_flag = ""  # NB get rid of this!
-        opt_mem_free_flag = ""  # NB get rid of this!
         cwd_flag = ''
+        # Get memory limit info for current queue from qconf, no need to guess
+        h_vmem = self.cluster.get_memlimit_per_process(self.queue)
+        # NB this has to be explicitly set, see Issue #53
+        opt_h_vmem_flag = "#$ -l h_vmem={:s}".format(h_vmem)
 
         if self.total_memory is not None:
             if self.n_threads > 1:
@@ -225,9 +227,6 @@ class ClusterJob(object):
                     'Maximum number of parallel threads is one (1) when total '
                     'memory consumption is specified.')
             # XXX would be nice with some sanity checking here...
-            h_vmem = self.cluster.get_memlimit_per_process(self.queue)
-            # NB this has to be explicitly set, see Issue #53
-            opt_h_vmem_flag = "#$ -l h_vmem={:s}".format(h_vmem)
             _, totmem, totmem_unit = re.split('(\d+)', self.total_memory)
             _, memlim, memlim_unit = re.split('(\d+)', h_vmem)
 

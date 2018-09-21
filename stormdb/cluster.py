@@ -220,6 +220,7 @@ class ClusterJob(object):
         h_vmem = self.cluster.get_memlimit_per_process(self.queue)
         # NB this has to be explicitly set, see Issue #53
         opt_h_vmem_flag = "#$ -l h_vmem={:s}".format(h_vmem)
+        opt_mem_free_flag  = ''  # Added to avoid error on line 273
 
         if self.total_memory is not None:
             if self.n_threads > 1:

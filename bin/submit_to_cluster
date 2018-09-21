@@ -11,7 +11,7 @@ parser.add_argument('-n', '--n_threads', type=int,
 parser.add_argument('-q', '--queue', type=str, default='short.q',
                     help='Name of queue to submit to')
 parser.add_argument('-m', '--total_memory', type=str, default=None,
-                    help=('Amount of virtual memory per thread to request. '
+                    help=('Total amount of memory to request (max 1 thread). '
                           'Format: M=megabytes, G=gigabytes (e.g. 30G). '
                           'See docstring of `ClusterJob` for details!'))
 parser.add_argument('-p', '--project', type=str, default=None,

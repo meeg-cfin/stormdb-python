@@ -32,7 +32,6 @@ QSUB_SCHEMA = """
 #$ -q {queue:s}
 {opt_threaded_flag:s}
 {opt_h_vmem_flag:s}
-{opt_mem_free_flag:s}
 
 # Make sure process uses max requested number of threads!
 export OMP_NUM_THREADS=$NSLOTS
@@ -220,7 +219,6 @@ class ClusterJob(object):
         h_vmem = self.cluster.get_memlimit_per_process(self.queue)
         # NB this has to be explicitly set, see Issue #53
         opt_h_vmem_flag = "#$ -l h_vmem={:s}".format(h_vmem)
-        opt_mem_free_flag  = ''  # Added to avoid error on line 273
 
         if self.total_memory is not None:
             if self.n_threads > 1:
@@ -249,9 +247,6 @@ class ClusterJob(object):
             self.cluster._check_parallel_env(self.queue, 'threaded')
             opt_threaded_flag = "#$ -pe threaded {:d}".format(self.n_threads)
 
-        # if self.mem_free is not None:
-        #     # XXX would be nice with some sanity checking here...
-        #     opt_mem_free_flag = "#$ -l mem_free={:s}".format(self.mem_free)
         if job_name is None:
             job_name = 'py-wrapper'
         log_name_prefix = job_name
@@ -268,9 +263,8 @@ class ClusterJob(object):
                     'Log directory {} does not exist.'.format(self.log_dir))
             log_name_prefix = os.path.join(self.log_dir, job_name)
 
-        self._create_qsub_script(job_name, cwd_flag,
-                                 opt_threaded_flag, opt_h_vmem_flag,
-                                 opt_mem_free_flag, log_name_prefix)
+        self._create_qsub_script(job_name, cwd_flag, opt_threaded_flag,
+                                 opt_h_vmem_flag, log_name_prefix)
 
     @property
     def cmd(self):
@@ -293,18 +287,16 @@ class ClusterJob(object):
             self._cmd = value
 
     def _create_qsub_script(self, job_name, cwd_flag, opt_threaded_flag,
-                            opt_h_vmem_flag, opt_mem_free_flag,
-                            log_name_prefix):
+                            opt_h_vmem_flag, log_name_prefix):
         """All variables should be defined"""
         if (self.cmd is None or self.queue is None or job_name is None or
                 cwd_flag is None or opt_threaded_flag is None or
-                opt_h_vmem_flag is None or opt_mem_free_flag is None):
+                opt_h_vmem_flag is None):
             raise ValueError('This should not happen, please report an Issue!')
 
         self._qsub_script =\
             self._qsub_schema.format(opt_threaded_flag=opt_threaded_flag,
                                      opt_h_vmem_flag=opt_h_vmem_flag,
-                                     opt_mem_free_flag=opt_mem_free_flag,
                                      cwd_flag=cwd_flag, queue=self.queue,
                                      log_name_prefix=log_name_prefix,
                                      exec_cmd=self.cmd, job_name=job_name)

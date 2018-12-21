@@ -57,7 +57,7 @@ class Maxfilter(ClusterBatch):
                   force=False, st=False, st_buflen=16.0,
                   st_corr=0.96, trans=None, movecomp=False,
                   headpos=False, hp=None, hpistep=None,
-                  hpisubt=None, hpicons=True, linefreq=None,
+                  hpisubt=None, hpicons=True, hpig=None, linefreq=None,
                   cal=None, ctc=None, mx_args='',
                   maxfilter_bin='/neuro/bin/util/maxfilter',
                   logfile=None, n_threads=4):
@@ -123,6 +123,8 @@ class Maxfilter(ClusterBatch):
             off
         hpicons : bool
             Check initial consistency isotrak vs hpifit
+        hpig : float (or None)
+            The g-value limit for hpi coil fitting (None: defaults to 0.98)
         linefreq : int (50, 60) (or None)
             Sets the basic line interference frequency (50 or 60 Hz)
             (None: do not use line filter)
@@ -229,10 +231,13 @@ class Maxfilter(ClusterBatch):
             cmd += '-hp {:s} '.format(hp)
 
         if hpisubt is not None:
-            cmd += 'hpisubt {:s} '.format(hpisubt)
+            cmd += '-hpisubt {:s} '.format(hpisubt)
 
         if hpicons:
             cmd += '-hpicons '
+
+        if hpig is not None:
+            cmd += '-hpig {:d} '.format(hpig)
 
         if linefreq is not None:
             cmd += '-linefreq {:d} '.format(linefreq)

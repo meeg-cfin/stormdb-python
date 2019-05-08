@@ -8,7 +8,6 @@ Methods to interact with the STORM database
 #
 # License: MIT
 
-
 from getpass import getuser, getpass
 from warnings import warn
 import os
@@ -24,6 +23,7 @@ class DBError(Exception):
     """
     Exception to raise when StormDB returns an error.
     """
+
     def __init__(self, value):
         self.value = value
 
@@ -52,7 +52,9 @@ class Query(object):
         Name of project
     """
 
-    def __init__(self, proj_name=None, stormdblogin='~/.stormdblogin',
+    def __init__(self,
+                 proj_name=None,
+                 stormdblogin='~/.stormdblogin',
                  verbose=None):
         if proj_name is None:
             try:
@@ -135,8 +137,8 @@ class Query(object):
         if response.find(error_str) != -1:
             if response.find('Your login is not working') != -1:
                 # Bad templogin-hash
-                msg = 'Looks like your ~/.stormdblogin is old/broken ' +\
-                      'and will be removed. Please enter your credentials ' +\
+                msg = 'Looks like your ~/.stormdblogin is old/broken ' + \
+                      'and will be removed. Please enter your credentials ' + \
                       'and re-run your query.'
                 warn(msg)
                 try:
@@ -207,10 +209,12 @@ class Query(object):
 
         # Python 3.x treats pipe strings as bytes, which need to be encoded
         # Here assuming shell output is in UTF-8
-        return(response)
+        return (response)
 
-    def get_subjects(self, subj_type='included',
-                     has_modality=None, has_series=None):
+    def get_subjects(self,
+                     subj_type='included',
+                     has_modality=None,
+                     has_series=None):
         """Get list of subjects from database
 
         Parameters
@@ -232,12 +236,12 @@ class Query(object):
             raise ValueError(
                 'You can only specify a modality OR a series, not both.')
         type_err = '{} must be a string, not {}.'
-        if (has_modality is not None and
-                not isinstance(has_modality, string_types)):
-            raise ValueError(type_err.format('has_modality',
-                                             type(has_modality)))
-        if (has_series is not None and
-                not isinstance(has_series, string_types)):
+        if (has_modality is not None
+                and not isinstance(has_modality, string_types)):
+            raise ValueError(
+                type_err.format('has_modality', type(has_modality)))
+        if (has_series is not None
+                and not isinstance(has_series, string_types)):
             raise ValueError(type_err.format('has_series', type(has_series)))
 
         # using 'subjecs' here would return only numeric ID, not code
@@ -251,9 +255,12 @@ class Query(object):
         else:
             raise NameError("subj_type must be 'included', excluded' or 'all'")
 
-        url = ('{scode:s}?{login:s}&projectCode={proj:s}&included={incl:d}'
-               .format(scode=scode, login=self._login_code,
-                       proj=self.proj_name, incl=included))
+        url = ('{scode:s}?{login:s}&projectCode={proj:s}&included={incl:d}'.
+            format(
+            scode=scode,
+            login=self._login_code,
+            proj=self.proj_name,
+            incl=included))
         output = self._send_request(url)
 
         # Split at '\n'
@@ -265,10 +272,12 @@ class Query(object):
             all_series = self.filter_series(modalities=has_modality)
             # get unique subjects that have has_modality and were found above
             used = []
-            subj_list = [ser['subjectcode'] for ser in all_series if
-                         ser['subjectcode'] not in used and
-                         (used.append(ser['subjectcode']) or True) and
-                         ser['subjectcode'] in subj_list]
+            subj_list = [
+                ser['subjectcode'] for ser in all_series
+                if ser['subjectcode'] not in used and (
+                        used.append(ser['subjectcode']) or True)
+                   and ser['subjectcode'] in subj_list
+            ]
             # The following also works, but is slower?
             # pop_inds = []
             # for nsub, sub in enumerate(subj_list):
@@ -282,12 +291,14 @@ class Query(object):
         if has_series is not None:
             all_series = self.filter_series(description=has_series)
             used = []
-            subj_list = [ser['subjectcode'] for ser in all_series if
-                         ser['subjectcode'] not in used and
-                         (used.append(ser['subjectcode']) or True) and
-                         ser['subjectcode'] in subj_list]
+            subj_list = [
+                ser['subjectcode'] for ser in all_series
+                if ser['subjectcode'] not in used and (
+                        used.append(ser['subjectcode']) or True)
+                   and ser['subjectcode'] in subj_list
+            ]
 
-        return(subj_list)
+        return (subj_list)
 
     def get_studies(self, subj_id, modality=None, unique=False):
         """Get list of studies from database for specified subject
@@ -314,7 +325,7 @@ class Query(object):
         """
 
         url = 'studies?' + self._login_code + \
-            '&projectCode=' + self.proj_name + '&subjectNo=' + subj_id
+              '&projectCode=' + self.proj_name + '&subjectNo=' + subj_id
         output = self._send_request(url)
 
         # Split at '\n'
@@ -325,20 +336,22 @@ class Query(object):
         if modality:
             for ii, study in enumerate(stud_list):
                 url = 'modalities?' + self._login_code + \
-                    '&projectCode=' + self.proj_name + '&subjectNo=' + \
+                      '&projectCode=' + self.proj_name + '&subjectNo=' + \
                       subj_id + '&study=' + study
                 output = self._send_request(url).split('\n')
 
                 if modality in output:
                     if unique:
-                        return([study, ])  # always return a list
+                        return ([
+                            study,
+                        ])  # always return a list
                 else:
                     stud_list[ii] = None
 
             # In Py3, filter returns an iterable object, but here we want list
             stud_list = list(filter(None, stud_list))
 
-        return(stud_list)
+        return (stud_list)
 
     def get_series(self, subj_id, study, modality):
         """Get dict of series from database.
@@ -370,8 +383,8 @@ class Query(object):
         The choice of a dict as output can be reconsidered.
         """
         url = 'series?' + self._login_code + '&projectCode=' + \
-            self.proj_name + '&subjectNo=' + \
-            subj_id + '&study=' + study + '&modality=' + modality
+              self.proj_name + '&subjectNo=' + \
+              subj_id + '&study=' + study + '&modality=' + modality
         output = self._send_request(url)
 
         # Split at '\n'
@@ -385,7 +398,7 @@ class Query(object):
 
         series_dict = {key: value for key, value in series_list_2d}
 
-        return(series_dict)
+        return (series_dict)
 
     def get_files(self, subj_id, study, modality, series):
         """Get list of files from database for specified subject, study,
@@ -423,10 +436,14 @@ class Query(object):
         # Remove any empty entries!
         file_list = [x for x in file_list if x]
 
-        return(file_list)
+        return (file_list)
 
-    def filter_series(self, description=None, subjects=None, modalities=None,
-                      study_date_range=None, study_metas=None,
+    def filter_series(self,
+                      description=None,
+                      subjects=None,
+                      modalities=None,
+                      study_date_range=None,
+                      study_metas=None,
                       return_files=True):
         """Select series based on their description (name)
 
@@ -523,7 +540,7 @@ class Query(object):
         if study_metas is not None and isinstance(study_metas, dict):
             # do some checking here...
             try:
-                meta_str += 'studymetas[{:s}]={:s}${:d}&'.\
+                meta_str += 'studymetas[{:s}]={:s}${:d}&'. \
                     format(study_metas['name'],
                            study_metas['comparison'],
                            study_metas['value'])
@@ -540,7 +557,7 @@ class Query(object):
               self.proj_name + '&subjects=' + subjects_str + '&studies=' + \
               studies + '&modalities=' + modalities_str + \
               '&types=' + types + '&anyWithType=' + anywithtype + \
-              '&description=' + description_str + '&excluded=' + excluded +\
+              '&description=' + description_str + '&excluded=' + excluded + \
               '&' + meta_str + outp + '&removeProjects=' + removeProjects
         output = self._send_request(url)
 
@@ -557,8 +574,7 @@ class Query(object):
                 if 'files' in key_val_pair[0]:
                     key_val_pair[1] = key_val_pair[1].split('|')
                 elif 'path' in key_val_pair[0]:
-                    m = re.search('\d{3}\.(.+?)/files',
-                                  key_val_pair[1])
+                    m = re.search('\d{3}\.(.+?)/files', key_val_pair[1])
                     info.append(['seriename', m.group(1)])
                 info.append(key_val_pair)
             info_dict = {key: value for (key, value) in info}
@@ -567,16 +583,18 @@ class Query(object):
         if study_date_range is not None:
             if isinstance(study_date_range, string_types):
                 study_date_range = [study_date_range, study_date_range]
-            info_dict_list = [s for s in info_dict_list if
-                              s['study'][:8] >= study_date_range[0] and
-                              s['study'][:8] <= study_date_range[1]]
-        return(info_dict_list)
+            info_dict_list = [
+                s for s in info_dict_list
+                if s['study'][:8] >= study_date_range[0]
+                   and s['study'][:8] <= study_date_range[1]
+            ]
+        return (info_dict_list)
 
     # def generate_output_path(self, relative_path=None):
     #     full_path = opj(self._scratch, relative_path)
 
-if __name__ == '__main__':
 
+if __name__ == '__main__':
     project_code = 'MEG_service'
 
     Q = Query(proj_name=project_code)

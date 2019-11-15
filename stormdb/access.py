@@ -506,7 +506,9 @@ class Query(object):
         # sorting files has to be done without suffix, otherwise
         # MEG files ending in '-1.fif' some before no suffix
         # see GH issue #69
-        return (sorted(file_list, key=lambda x:x[:-4]))
+        # return (sorted(file_list, key=lambda x:x[:-4]))
+        return (sorted(file_list,
+                key=lambda x:os.path.splitext(x)[0]))
 
     def filter_series(self,
                       description=None,
@@ -646,7 +648,7 @@ class Query(object):
                     # sorting files has to be done without suffix, otherwise
                     # MEG files ending in '-1.fif' some before no suffix
                     # see GH issue #69
-                    key_val_pair[1].sort(key=lambda x:x[:-4])
+                    key_val_pair[1].sort(key=lambda x:os.path.splitext(x)[0])
 
                 elif 'path' in key_val_pair[0]:
                     m = re.search('\d{3}\.(.+?)/files', key_val_pair[1])

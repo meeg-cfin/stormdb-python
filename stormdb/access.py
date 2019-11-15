@@ -256,11 +256,10 @@ class Query(object):
             raise NameError("subj_type must be 'included', excluded' or 'all'")
 
         url = ('{scode:s}?{login:s}&projectCode={proj:s}&included={incl:d}'.
-            format(
-            scode=scode,
-            login=self._login_code,
-            proj=self.proj_name,
-            incl=included))
+               format(scode=scode,
+                      login=self._login_code,
+                      proj=self.proj_name,
+                      incl=included))
         output = self._send_request(url)
 
         # Split at '\n'
@@ -275,8 +274,8 @@ class Query(object):
             subj_list = [
                 ser['subjectcode'] for ser in all_series
                 if ser['subjectcode'] not in used and (
-                        used.append(ser['subjectcode']) or True)
-                   and ser['subjectcode'] in subj_list
+                    used.append(ser['subjectcode']) or True)
+                and ser['subjectcode'] in subj_list
             ]
             # The following also works, but is slower?
             # pop_inds = []
@@ -294,8 +293,8 @@ class Query(object):
             subj_list = [
                 ser['subjectcode'] for ser in all_series
                 if ser['subjectcode'] not in used and (
-                        used.append(ser['subjectcode']) or True)
-                   and ser['subjectcode'] in subj_list
+                    used.append(ser['subjectcode']) or True)
+                and ser['subjectcode'] in subj_list
             ]
 
         return (subj_list)
@@ -503,12 +502,11 @@ class Query(object):
         # Remove any empty entries!
         file_list = [x for x in file_list if x]
 
-        # sorting files has to be done without suffix, otherwise
-        # MEG files ending in '-1.fif' some before no suffix
+        # sorting files has to be done without extension, otherwise
+        # MEG files ending in '-1.fif' come before the one without
         # see GH issue #69
-        # return (sorted(file_list, key=lambda x:x[:-4]))
         return (sorted(file_list,
-                key=lambda x:os.path.splitext(x)[0]))
+                key=lambda x: os.path.splitext(x)[0]))
 
     def filter_series(self,
                       description=None,
@@ -645,10 +643,10 @@ class Query(object):
                 key_val_pair = kvp.split(':')
                 if 'files' in key_val_pair[0]:
                     key_val_pair[1] = key_val_pair[1].split('|')
-                    # sorting files has to be done without suffix, otherwise
-                    # MEG files ending in '-1.fif' some before no suffix
+                    # sorting files has to be done without extension, otherwise
+                    # MEG files ending in '-1.fif' come before the one without
                     # see GH issue #69
-                    key_val_pair[1].sort(key=lambda x:os.path.splitext(x)[0])
+                    key_val_pair[1].sort(key=lambda x: os.path.splitext(x)[0])
 
                 elif 'path' in key_val_pair[0]:
                     m = re.search('\d{3}\.(.+?)/files', key_val_pair[1])
@@ -663,7 +661,7 @@ class Query(object):
             info_dict_list = [
                 s for s in info_dict_list
                 if s['study'][:8] >= study_date_range[0]
-                   and s['study'][:8] <= study_date_range[1]
+                and s['study'][:8] <= study_date_range[1]
             ]
         return (info_dict_list)
 

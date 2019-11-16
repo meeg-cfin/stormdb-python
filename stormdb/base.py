@@ -11,6 +11,10 @@ import inspect
 from six import string_types
 
 
+def check_destination_exists(dest):
+    return(os.access, os.F_OK)
+
+
 def check_destination_writable(dest):
     try:
         open(dest, 'w')

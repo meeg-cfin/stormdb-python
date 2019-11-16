@@ -20,7 +20,7 @@ from mne.bem import fit_sphere_to_headshape
 
 from .utils import _get_absolute_proj_path
 from ..base import (check_destination_writable, check_source_readable,
-                    mkdir_p)
+                    check_destination_exists, mkdir_p)
 from ..cluster import ClusterBatch
 
 
@@ -135,14 +135,13 @@ class Maxfilter(ClusterBatch):
         """
         if not check_source_readable(in_fname):
             raise IOError('Input file {} not readable!'.format(in_fname))
-        if not check_destination_writable(out_fname):
-            if check_source_readable(out_fname) and not force:
+        if check_destination_exists(out_fname):
+            if not force:
                 raise IOError('Output file {} exists, use force=True to '
-                              'overwrite!'.format(out_fname))
-            else:
-                raise IOError('Output file {} not writable!'.format(out_fname))
-        else:
-            output_dir = op.dirname(out_fname)
+                        'overwrite!'.format(out_fname))
+        elif not check_destination_writable(out_fname):
+            raise IOError('Output file {} not writable!'.format(out_fname))
+        output_dir = op.dirname(out_fname)
 
         # determine the head origin if necessary
         if origin is None:

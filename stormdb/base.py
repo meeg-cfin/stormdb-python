@@ -12,27 +12,18 @@ from six import string_types
 
 
 def check_destination_exists(dest):
-    return(os.access, os.F_OK)
+    return os.access(dest, os.F_OK)
 
 
 def check_destination_writable(dest):
-    try:
-        open(dest, 'w')
-    except IOError:
-        return False
-    else:
-        os.remove(dest)
+    if (not check_destination_exists(dest)
+            and os.access(os.path.dirname(dest), os.W_OK)):
         return True
+    return False  # don't bother checking for writability if exists
 
 
 def check_source_readable(source):
-    try:
-        fid = open(source, 'r')
-    except IOError:
-        return False
-    else:
-        fid.close()
-        return True
+    return os.access(source, os.R_OK)
 
 
 def enforce_path_exists(test_dir):

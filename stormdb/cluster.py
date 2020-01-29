@@ -14,7 +14,7 @@ import subprocess as subp
 import re
 import math
 from six import string_types
-from os.path import expanduser
+from os.path import expanduser, basename
 from .access import Query
 from .base import enforce_path_exists
 
@@ -260,7 +260,9 @@ class ClusterJob(object):
             opt_threaded_flag = "#$ -pe threaded {:d}".format(self.n_threads)
 
         if job_name is None:
-            job_name = 'py-wrapper'
+            # self._cmd may have multiple \n-separated commands: take 1st
+            # basename followed by 0 or more spaces with arguments (ditch)
+            job_name = basename(self._cmd.split('\n')[0]).split(' ')[0]
         log_name_prefix = job_name
 
         if working_dir is not None and isinstance(working_dir, string_types):
